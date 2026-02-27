@@ -9,18 +9,18 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #2f3d33 0%, #121a13 60%, #090d0a 100%);
-  color: #f7efd3;
+  background: radial-gradient(circle at top, #324237 0%, #141d16 64%, #0a0f0b 100%);
+  color: #f6efd9;
   font-family: "Trebuchet MS", "Segoe UI", sans-serif;
   display: grid;
   place-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   padding: 1rem;
 }
 
 .hud {
   text-align: center;
-  max-width: 900px;
+  max-width: 1100px;
 }
 
 .hud h1 {
@@ -31,14 +31,31 @@ body {
 
 .hud p {
   margin: 0.35rem 0 0;
-  color: #d7c9a2;
+  color: #dccca3;
+  font-size: 0.95rem;
 }
 
 canvas {
-  border: 4px solid #8d5e3c;
-  border-radius: 10px;
-  box-shadow: 0 14px 30px rgb(0 0 0 / 0.5);
+  border: 4px solid #8b5e3b;
+  border-radius: 12px;
+  box-shadow: 0 18px 36px rgb(0 0 0 / 0.55);
   background: #273428;
   max-width: 100%;
   height: auto;
+}
+
+.status,
+.dialogue {
+  max-width: 1120px;
+  width: min(1120px, 100%);
+  border: 1px solid rgb(255 220 170 / 0.35);
+  background: rgb(12 18 14 / 0.78);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  color: #f6efd9;
+}
+
+.dialogue {
+  min-height: 2.4rem;
+  color: #f9dc9c;
 }
