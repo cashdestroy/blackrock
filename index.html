@@ -3,14 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Autumn Trail 3D: WebGL Edition</title>
+  <title>Autumn Trail 3D: Character Edition</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="hud">
-    <h1>Autumn Trail 3D: WebGL Edition</h1>
-    <p>WASD move • Mouse drag to look • Shift sprint • F interact • B build mode • 1/2/3 customize home • P switch companion</p>
+    <h1>Autumn Trail 3D: Character Edition</h1>
+    <p>WASD move • Mouse drag to look • Shift sprint • F interact • B build mode • 1/2/3 customize home • P select active companion</p>
   </div>
+
+  <div id="creator" class="creator">
+    <h2>Quick Character Creator</h2>
+    <label>Name <input id="nameInput" type="text" value="Ranger" maxlength="18" /></label>
+    <label>Skin <input id="skinInput" type="color" value="#e0b89a" /></label>
+    <label>Jacket <input id="jacketInput" type="color" value="#3b6a9e" /></label>
+    <label>Hair <input id="hairInput" type="color" value="#3f2a1e" /></label>
+    <button id="startBtn" type="button">Start Adventure</button>
+  </div>
+
   <canvas id="game" width="1280" height="720" aria-label="Open world cozy exploration game in modern WebGL"></canvas>
   <div class="status" id="status"></div>
   <div class="dialogue" id="dialogue"></div>
