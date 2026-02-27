@@ -533,19 +533,28 @@ function setMessage(text) {
 }
 
 function mixColor(c1, c2, t) {
-  const a = hexToRgb(c1);
-  const b = hexToRgb(c2);
+  const a = parseColor(c1);
+  const b = parseColor(c2);
   return `rgb(${Math.round(a.r + (b.r - a.r) * t)}, ${Math.round(a.g + (b.g - a.g) * t)}, ${Math.round(a.b + (b.b - a.b) * t)})`;
 }
 
-function hexToRgb(hex) {
-  const h = hex.replace("#", "");
+function parseColor(value) {
+  if (value.startsWith("rgb")) {
+    const parts = value.match(/\d+(?:\.\d+)?/g) || [0, 0, 0];
+    return {
+      r: Number(parts[0]) || 0,
+      g: Number(parts[1]) || 0,
+      b: Number(parts[2]) || 0,
+    };
+  }
+
+  const h = value.replace("#", "");
   const n = Number.parseInt(h, 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
 function shadeColor(hex, amount) {
-  const rgb = hexToRgb(hex);
+  const rgb = parseColor(hex);
   return `rgb(${clamp(rgb.r + amount, 0, 255)}, ${clamp(rgb.g + amount, 0, 255)}, ${clamp(rgb.b + amount, 0, 255)})`;
 }
 
