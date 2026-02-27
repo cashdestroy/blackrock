@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Autumn Trail 3D: Town Detail Edition</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="hud">
+    <h1>Autumn Trail 3D: Town Detail Edition</h1>
+    <p>WASD move • Mouse drag to look • Shift sprint • F talk • B toggle decorate mode • 1/2/3 cycle style • P choose lead pet</p>
+  </div>
+
+  <div id="creator" class="creator">
+    <h2>Quick Character Creator</h2>
+    <label>Name <input id="nameInput" type="text" value="Ranger" maxlength="18" /></label>
+    <label>Skin <input id="skinInput" type="color" value="#e0b89a" /></label>
+    <label>Jacket <input id="jacketInput" type="color" value="#3b6a9e" /></label>
+    <label>Hair <input id="hairInput" type="color" value="#3f2a1e" /></label>
+    <button id="startBtn" type="button">Enter Town</button>
+  </div>
+
+  <canvas id="game" width="1280" height="720" aria-label="Detailed small town WebGL scene"></canvas>
+  <div class="status" id="status"></div>
+  <div class="dialogue" id="dialogue"></div>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
