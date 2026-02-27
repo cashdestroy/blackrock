@@ -4,6 +4,12 @@ const canvas = document.getElementById("game");
 const statusEl = document.getElementById("status");
 const dialogueEl = document.getElementById("dialogue");
 
+function shadeHex(hex, delta) {
+  const c = new THREE.Color(hex);
+  c.offsetHSL(0, 0, delta / 255);
+  return c.getHex();
+}
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
 renderer.setSize(canvas.clientWidth || canvas.width, canvas.clientHeight || canvas.height, false);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
@@ -109,13 +115,13 @@ const waterfall = new THREE.Mesh(
 waterfall.position.set(320, terrainHeight(320, riverPathFn(320)) + 35, riverPathFn(320));
 scene.add(waterfall);
 
-const treeTrunkGeo = new THREE.CylinderGeometry(0.8, 1.2, 10, 8);
-const treeLeafGeo = new THREE.SphereGeometry(4.5, 12, 10);
-const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a472d, roughness: 0.95 });
-const leafMats = [0xde6a2c, 0xc84727, 0xf4be4f, 0x3f6d45, 0xb89b45].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85 }));
+const treeTrunkGeo = new THREE.BoxGeometry(1.6, 10, 1.6);
+const treeLeafGeo = new THREE.ConeGeometry(5.2, 9.5, 6);
+const trunkMat = new THREE.MeshStandardMaterial({ color: 0x6a472d, roughness: 0.95, flatShading: true });
+const leafMats = [0xde6a2c, 0xc84727, 0xf4be4f, 0x3f6d45, 0xb89b45].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.82, flatShading: true }));
 
 const trees = new THREE.Group();
-for (let i = 0; i < 1800; i += 1) {
+for (let i = 0; i < 2200; i += 1) {
   const x = (Math.random() - 0.5) * (worldSize - 120);
   const z = (Math.random() - 0.5) * (worldSize - 120);
   if (Math.abs(z - riverPathFn(x)) < 16) continue;
@@ -128,10 +134,19 @@ for (let i = 0; i < 1800; i += 1) {
   trees.add(trunk);
 
   const crown = new THREE.Mesh(treeLeafGeo, leafMats[Math.floor(Math.random() * leafMats.length)]);
-  crown.position.set(x, y + 12, z);
-  crown.scale.setScalar(0.8 + Math.random() * 0.8);
+  crown.position.set(x, y + 12.4, z);
+  crown.rotation.y = Math.random() * Math.PI;
+  crown.scale.set(0.8 + Math.random() * 1.1, 0.9 + Math.random() * 1.2, 0.8 + Math.random() * 1.1);
   crown.castShadow = true;
   trees.add(crown);
+
+  if (Math.random() > 0.58) {
+    const crown2 = new THREE.Mesh(new THREE.ConeGeometry(4.2, 7.2, 6), leafMats[Math.floor(Math.random() * leafMats.length)]);
+    crown2.position.set(x, y + 17.5, z);
+    crown2.rotation.y = Math.random() * Math.PI;
+    crown2.castShadow = true;
+    trees.add(crown2);
+  }
 }
 scene.add(trees);
 
@@ -144,8 +159,8 @@ for (let i = 0; i < 6; i += 1) {
   const hz = town.z + Math.floor(i / 3) * 34 - 17;
   const hy = terrainHeight(hx, hz);
   const home = new THREE.Group();
-  const body = new THREE.Mesh(new THREE.BoxGeometry(14, 9, 12), new THREE.MeshStandardMaterial({ color: 0xb58b62 }));
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(10, 6, 4), new THREE.MeshStandardMaterial({ color: 0x7f4733 }));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(14, 9, 12), new THREE.MeshStandardMaterial({ color: 0xb58b62, flatShading: true }));
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(10, 6, 4), new THREE.MeshStandardMaterial({ color: 0x7f4733, flatShading: true }));
   roof.rotation.y = Math.PI * 0.25;
   body.position.y = 4.5;
   roof.position.y = 12;
@@ -160,9 +175,21 @@ for (let i = 0; i < 6; i += 1) {
 }
 scene.add(townGroup);
 
-const npc = new THREE.Mesh(new THREE.CapsuleGeometry(1.2, 3.4, 4, 8), new THREE.MeshStandardMaterial({ color: 0x405f96 }));
-npc.position.set(town.x + 10, terrainHeight(town.x + 10, town.z + 10) + 2.7, town.z + 10);
-npc.castShadow = true;
+const npc = new THREE.Group();
+const npcBody = new THREE.Mesh(new THREE.BoxGeometry(2.4, 4.2, 1.8), new THREE.MeshStandardMaterial({ color: 0x405f96, flatShading: true }));
+const npcHead = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.7, 1.7), new THREE.MeshStandardMaterial({ color: 0xe5c1a1, flatShading: true }));
+const npcShoulder = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.8, 1.1), new THREE.MeshStandardMaterial({ color: 0x2f4b7e, flatShading: true }));
+npcBody.position.y = 2.2;
+npcHead.position.y = 5.2;
+npcShoulder.position.y = 3.5;
+npc.add(npcBody, npcHead, npcShoulder);
+npc.position.set(town.x + 10, terrainHeight(town.x + 10, town.z + 10) + 0.2, town.z + 10);
+npc.traverse((m) => {
+  if (m.isMesh) {
+    m.castShadow = true;
+    m.receiveShadow = true;
+  }
+});
 scene.add(npc);
 
 const player = {
@@ -178,18 +205,33 @@ const petData = [
 ];
 let activePet = 0;
 const companions = petData.map((p, idx) => {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), new THREE.MeshStandardMaterial({ color: p.color }));
-  m.castShadow = true;
-  m.position.copy(player.pos).add(new THREE.Vector3(-2 - idx * 1.4, 0, 1.8 + idx * 1.2));
-  scene.add(m);
-  return m;
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.2, 1.1), new THREE.MeshStandardMaterial({ color: p.color, flatShading: true }));
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 0.85), new THREE.MeshStandardMaterial({ color: p.color, flatShading: true }));
+  const earL = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.52, 3), new THREE.MeshStandardMaterial({ color: shadeHex(p.color, -0x111111), flatShading: true }));
+  const earR = earL.clone();
+  head.position.set(1.1, 0.45, 0);
+  earL.position.set(1.1, 1.0, 0.22);
+  earR.position.set(1.1, 1.0, -0.22);
+  earL.rotation.z = -Math.PI / 12;
+  earR.rotation.z = -Math.PI / 12;
+  g.add(body, head, earL, earR);
+  g.position.copy(player.pos).add(new THREE.Vector3(-2 - idx * 1.4, -1.1, 1.8 + idx * 1.2));
+  g.traverse((m) => {
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
+  scene.add(g);
+  return g;
 });
 
 const keys = new Set();
 let dragging = false;
 let lastX = 0;
 let buildMode = false;
-let info = "WebGL mode loaded. This is the highest fidelity version possible in-browser without a native game engine build.";
+let info = "WebGL mode loaded with sharper low-poly detail. This version favors defined edges over rounded forms.";
 let infoTimer = 6;
 
 window.addEventListener("keydown", (e) => keys.add(e.key.toLowerCase()));
@@ -256,7 +298,7 @@ function animate() {
 
   companions.forEach((pet, idx) => {
     const target = player.pos.clone().add(new THREE.Vector3(Math.cos(player.yaw + Math.PI + idx * 0.8) * (4 + idx * 1.1), 0, Math.sin(player.yaw + Math.PI + idx * 0.8) * (4 + idx * 1.1)));
-    pet.position.lerp(target.setY(groundAt(target.x, target.z) - 1.6 + Math.sin(t * 4 + idx) * 0.05), dt * 3.4);
+    pet.position.lerp(target.setY(groundAt(target.x, target.z) - 1.1 + Math.sin(t * 4 + idx) * 0.04), dt * 3.4);
     pet.scale.setScalar(idx === activePet ? 1.18 : 1.0);
   });
 
