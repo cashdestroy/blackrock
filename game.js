@@ -3,190 +3,193 @@ const ctx = canvas.getContext("2d");
 const statusEl = document.getElementById("status");
 const dialogueEl = document.getElementById("dialogue");
 
-const world = {
-  width: 9200,
-  height: 9200,
-  treeCount: 1800,
-};
+const world = { width: 14000, depth: 14000 };
+const FOV = Math.PI / 2.8;
 
 const player = {
-  x: world.width * 0.18,
-  y: world.height * 0.2,
-  radius: 12,
-  speed: 250,
-};
-
-const camera = {
-  x: 0,
+  x: 2200,
+  z: 2200,
   y: 0,
+  angle: 0.5,
+  speed: 220,
+  turnSpeed: 2.1,
+  eyeHeight: 42,
 };
 
 const keys = new Set();
 const justPressed = new Set();
+let message = "Welcome to Cozy Wilds 3D. Explore, build, and adventure with your dog.";
+let messageTimer = 0;
+
 const discoveredBiomes = new Set();
 const discoveredFalls = new Set();
 
 const biomeNames = {
-  autumnForest: "Autumn Forest",
-  pineWoods: "Pine Woods",
-  meadow: "Golden Meadow",
+  autumn: "Autumn Forest",
+  pine: "Pine Woods",
+  meadow: "Sunset Meadow",
   mountain: "Misty Highlands",
-  lakeside: "Lakeside Glade",
-};
-
-const palettes = {
-  autumnForest: ["#de6a2c", "#f39c12", "#c84727", "#f4be4f", "#9f3f2e"],
-  pineWoods: ["#2f6b3e", "#316f45", "#235c35"],
-  meadow: ["#baa03b", "#c7ad44", "#d7c16d"],
-  mountain: ["#65707a", "#56616a", "#747f88"],
-  lakeside: ["#64b9c5", "#4fa8b6", "#7fc8d2"],
+  lakeside: "Lakeside",
 };
 
 const towns = [
-  {
-    name: "Maple Hollow",
-    x: 1650,
-    y: 1780,
-    radius: 340,
-    home: { wall: 0, roof: 0, decor: 0 },
-    npcIds: [0, 1],
-  },
-  {
-    name: "Cedar Rest",
-    x: 6750,
-    y: 6720,
-    radius: 370,
-    home: { wall: 1, roof: 1, decor: 1 },
-    npcIds: [2, 3],
-  },
+  { name: "Maple Hollow", x: 2500, z: 2350, radius: 600, home: { wall: 0, roof: 0, decor: 0 } },
+  { name: "Cedar Rest", x: 10000, z: 9900, radius: 680, home: { wall: 1, roof: 1, decor: 2 } },
 ];
 
 const npcs = [
-  { x: 1530, y: 1670, name: "Ivy", town: 0, line: "Try the river trail at sunrise. The mist glows amber." },
-  { x: 1760, y: 1900, name: "Milo", town: 0, line: "Build cozy first, grand later. Homes should feel warm." },
-  { x: 6620, y: 6590, name: "Sage", town: 1, line: "Waterfalls in the north hide rare birds and calm moments." },
-  { x: 6920, y: 6870, name: "Jun", town: 1, line: "Adopt companions at the lodge. Every trail feels better together." },
+  { name: "Ivy", x: 2640, z: 2500, line: "If you follow the river west you'll find hidden falls." },
+  { name: "Milo", x: 2240, z: 2200, line: "A cozy home starts small. Press B, then 1/2/3." },
+  { name: "Sage", x: 9930, z: 10120, line: "The highlands feel like old RPG adventures at dusk." },
+  { name: "Jun", x: 10180, z: 9800, line: "Adopt foxes and cats near town lodges with E." },
 ];
 
 const adoptablePets = [
-  { kind: "Dog", color: "#8f6a43", x: 1800, y: 1700 },
-  { kind: "Fox", color: "#cd7a34", x: 1848, y: 1740 },
-  { kind: "Cat", color: "#7d7d87", x: 1882, y: 1686 },
+  { kind: "Fox", color: "#d67931", x: 2430, z: 2580 },
+  { kind: "Cat", color: "#8f8f9d", x: 2580, z: 2620 },
 ];
 
-const companions = [
-  { kind: "Dog", color: "#8f6a43", x: player.x - 34, y: player.y + 18, speed: 190, wagTime: 0 },
-];
+const companions = [{ kind: "Dog", color: "#8f6a43", x: player.x - 60, z: player.z + 50, speed: 180, wag: 0 }];
 let activeCompanion = 0;
+let buildMode = false;
 
-const wildlife = [];
-for (let i = 0; i < 48; i += 1) {
-  const rand = seededRandom(i * 119 + 31);
-  wildlife.push({
-    type: rand() > 0.5 ? "Deer" : "Rabbit",
-    x: 700 + rand() * (world.width - 1400),
-    y: 700 + rand() * (world.height - 1400),
-    dir: rand() * Math.PI * 2,
-    speed: 25 + rand() * 40,
-    hue: rand() > 0.5 ? "#b79062" : "#d9d3c7",
-  });
-}
-
-const rivers = [
-  {
-    name: "Amber Run",
-    width: 48,
-    path: (x) => world.height * 0.26 + Math.sin(x * 0.0015) * 320 + Math.sin(x * 0.005) * 70,
-  },
-  {
-    name: "Moonbrook",
-    width: 38,
-    path: (x) => world.height * 0.64 + Math.cos(x * 0.0013 + 1.1) * 290,
-  },
-];
-
-const waterfalls = [
-  { x: 3150, y: rivers[0].path(3150), name: "Silver Drop" },
-  { x: 7340, y: rivers[1].path(7340), name: "Whisper Falls" },
-];
-
-const trees = Array.from({ length: world.treeCount }, (_, i) => {
-  const rand = seededRandom(i * 932 + 19);
-  const x = rand() * world.width;
-  const y = rand() * world.height;
-  const biome = getBiome(x, y);
-  const palette = palettes[biome] || palettes.autumnForest;
+const wildlife = Array.from({ length: 80 }, (_, i) => {
+  const rand = seededRandom(i * 912 + 41);
   return {
-    x,
-    y,
-    trunkWidth: 8 + rand() * 6,
-    trunkHeight: 22 + rand() * 20,
-    canopy: 24 + rand() * 26,
-    color: palette[Math.floor(rand() * palette.length)],
+    type: rand() > 0.5 ? "Deer" : "Rabbit",
+    x: 900 + rand() * (world.width - 1800),
+    z: 900 + rand() * (world.depth - 1800),
+    dir: rand() * Math.PI * 2,
+    speed: 26 + rand() * 36,
+    color: rand() > 0.5 ? "#b69061" : "#dbd5c9",
   };
 });
 
-let buildMode = false;
-let messageTimer = 0;
-let message = "Start your adventure with your loyal dog. Explore, adopt companions, and build a cozy home.";
+const trees = Array.from({ length: 2200 }, (_, i) => {
+  const rand = seededRandom(i * 193 + 17);
+  const x = rand() * world.width;
+  const z = rand() * world.depth;
+  const biome = getBiome(x, z);
+  return {
+    x,
+    z,
+    h: 65 + rand() * 55,
+    w: 28 + rand() * 16,
+    color: biomeLeafColor(biome, rand()),
+  };
+});
+
+const rivers = [
+  { name: "Amber Run", width: 120, path: (x) => world.depth * 0.3 + Math.sin(x * 0.0012) * 430 + Math.sin(x * 0.0048) * 90 },
+  { name: "Moonbrook", width: 90, path: (x) => world.depth * 0.72 + Math.cos(x * 0.0011 + 0.6) * 340 },
+];
+
+const waterfalls = [
+  { name: "Silver Drop", x: 4900, z: rivers[0].path(4900) },
+  { name: "Whisper Falls", x: 10900, z: rivers[1].path(10900) },
+];
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
   if (!keys.has(key)) justPressed.add(key);
   keys.add(key);
 });
-
-window.addEventListener("keyup", (event) => {
-  keys.delete(event.key.toLowerCase());
-});
+window.addEventListener("keyup", (event) => keys.delete(event.key.toLowerCase()));
 
 let last = performance.now();
 requestAnimationFrame(loop);
 
-function loop(timestamp) {
-  const delta = Math.min((timestamp - last) / 1000, 0.03);
-  last = timestamp;
+function loop(t) {
+  const dt = Math.min((t - last) / 1000, 0.033);
+  last = t;
 
-  updatePlayer(delta);
-  updateCompanions(delta);
-  updateWildlife(delta);
+  updatePlayer(dt);
+  updateCompanions(dt);
+  updateWildlife(dt);
   handleInteractions();
   updateDiscoveries();
-  updateCamera();
-  render(timestamp / 1000);
+  render(t / 1000);
   updateHud();
 
   justPressed.clear();
-  if (messageTimer > 0) messageTimer -= delta;
-
+  if (messageTimer > 0) messageTimer -= dt;
   requestAnimationFrame(loop);
 }
 
+function updatePlayer(dt) {
+  if (keys.has("arrowleft") || keys.has("q")) player.angle -= player.turnSpeed * dt;
+  if (keys.has("arrowright") || keys.has("e")) player.angle += player.turnSpeed * dt;
+
+  let move = 0;
+  if (keys.has("w") || keys.has("arrowup")) move += 1;
+  if (keys.has("s") || keys.has("arrowdown")) move -= 1;
+
+  const strafe = (keys.has("a") ? -1 : 0) + (keys.has("d") ? 1 : 0);
+  const runMul = keys.has("shift") ? 1.4 : 1;
+
+  const forwardX = Math.cos(player.angle);
+  const forwardZ = Math.sin(player.angle);
+  const rightX = Math.cos(player.angle + Math.PI / 2);
+  const rightZ = Math.sin(player.angle + Math.PI / 2);
+
+  player.x = clamp(player.x + (forwardX * move + rightX * strafe) * player.speed * runMul * dt, 20, world.width - 20);
+  player.z = clamp(player.z + (forwardZ * move + rightZ * strafe) * player.speed * runMul * dt, 20, world.depth - 20);
+
+  const ground = terrainHeight(player.x, player.z);
+  player.y += (ground + player.eyeHeight - player.y) * Math.min(1, dt * 8);
+}
+
+function updateCompanions(dt) {
+  companions.forEach((pet, idx) => {
+    const ring = idx === activeCompanion ? 70 : 110;
+    const offset = player.angle + Math.PI + idx * 0.95;
+    const tx = player.x + Math.cos(offset) * ring;
+    const tz = player.z + Math.sin(offset) * ring;
+    const dx = tx - pet.x;
+    const dz = tz - pet.z;
+    const dist = Math.hypot(dx, dz);
+    if (dist > 4) {
+      pet.x += (dx / dist) * pet.speed * dt;
+      pet.z += (dz / dist) * pet.speed * dt;
+    }
+    pet.wag += dt * (idx === activeCompanion ? 11 : 6);
+  });
+}
+
+function updateWildlife(dt) {
+  for (const animal of wildlife) {
+    animal.dir += Math.sin((animal.x + animal.z) * 0.00045) * 0.032;
+    animal.x = clamp(animal.x + Math.cos(animal.dir) * animal.speed * dt, 30, world.width - 30);
+    animal.z = clamp(animal.z + Math.sin(animal.dir) * animal.speed * dt, 30, world.depth - 30);
+    if (Math.random() < 0.006) animal.dir += (Math.random() - 0.5) * 1.6;
+  }
+}
+
 function handleInteractions() {
-  if (justPressed.has("e")) {
-    const nearNpc = nearestEntity(npcs, 76);
-    if (nearNpc) {
-      setMessage(`${nearNpc.name}: ${nearNpc.line}`);
+  if (justPressed.has("f")) {
+    const npc = nearestEntity(npcs, 190);
+    if (npc) {
+      setMessage(`${npc.name}: ${npc.line}`);
       return;
     }
 
-    const nearPet = nearestEntity(adoptablePets, 74);
-    if (nearPet && !companions.some((c) => c.kind === nearPet.kind)) {
-      companions.push({ kind: nearPet.kind, color: nearPet.color, x: player.x - 22, y: player.y + 20, speed: 175, wagTime: 0 });
-      setMessage(`You adopted ${nearPet.kind}! Press P to switch active companion.`);
+    const pet = nearestEntity(adoptablePets, 160);
+    if (pet && !companions.some((c) => c.kind === pet.kind)) {
+      companions.push({ kind: pet.kind, color: pet.color, x: player.x - 40, z: player.z + 40, speed: 172, wag: 0 });
+      setMessage(`You adopted a ${pet.kind}! Press P to switch companion.`);
       return;
     }
   }
 
   if (justPressed.has("p") && companions.length > 1) {
     activeCompanion = (activeCompanion + 1) % companions.length;
-    setMessage(`${companions[activeCompanion].kind} is now your active trail companion.`);
+    setMessage(`${companions[activeCompanion].kind} is now your active companion.`);
   }
 
-  const town = nearestTown(210);
+  const town = nearestTown(360);
   if (justPressed.has("b") && town) {
     buildMode = !buildMode;
-    setMessage(buildMode ? `Build mode enabled in ${town.name}. Press 1/2/3 to customize.` : "Build mode closed.");
+    setMessage(buildMode ? `Build mode enabled in ${town.name}. Use 1/2/3 to customize.` : "Build mode disabled.");
   }
 
   if (buildMode && town) {
@@ -196,368 +199,332 @@ function handleInteractions() {
   }
 }
 
-function updatePlayer(delta) {
-  let moveX = 0;
-  let moveY = 0;
-
-  if (keys.has("arrowup") || keys.has("w")) moveY -= 1;
-  if (keys.has("arrowdown") || keys.has("s")) moveY += 1;
-  if (keys.has("arrowleft") || keys.has("a")) moveX -= 1;
-  if (keys.has("arrowright") || keys.has("d")) moveX += 1;
-
-  const length = Math.hypot(moveX, moveY);
-  if (length > 0) {
-    moveX /= length;
-    moveY /= length;
-  }
-
-  player.x = clamp(player.x + moveX * player.speed * delta, 0, world.width);
-  player.y = clamp(player.y + moveY * player.speed * delta, 0, world.height);
-}
-
-function updateCompanions(delta) {
-  companions.forEach((pet, idx) => {
-    const offsetAngle = idx * 1.5;
-    const targetX = player.x + Math.cos(offsetAngle) * (idx === activeCompanion ? -34 : -64);
-    const targetY = player.y + Math.sin(offsetAngle) * (idx === activeCompanion ? 20 : 36);
-    const dx = targetX - pet.x;
-    const dy = targetY - pet.y;
-    const dist = Math.hypot(dx, dy);
-
-    if (dist > 8) {
-      pet.x += (dx / dist) * pet.speed * delta;
-      pet.y += (dy / dist) * pet.speed * delta;
-    }
-    pet.wagTime += delta * (idx === activeCompanion ? 12 : 6);
-  });
-}
-
-function updateWildlife(delta) {
-  for (const animal of wildlife) {
-    animal.dir += Math.sin((animal.x + animal.y) * 0.0004) * 0.03;
-    animal.x = clamp(animal.x + Math.cos(animal.dir) * animal.speed * delta, 0, world.width);
-    animal.y = clamp(animal.y + Math.sin(animal.dir) * animal.speed * delta, 0, world.height);
-    if (Math.random() < 0.004) animal.dir += (Math.random() - 0.5) * 1.8;
-  }
-}
-
 function updateDiscoveries() {
-  const biome = getBiome(player.x, player.y);
-  discoveredBiomes.add(biome);
-
+  discoveredBiomes.add(getBiome(player.x, player.z));
   for (const falls of waterfalls) {
-    const d = Math.hypot(player.x - falls.x, player.y - falls.y);
-    if (d < 170) discoveredFalls.add(falls.name);
+    if (Math.hypot(player.x - falls.x, player.z - falls.z) < 240) discoveredFalls.add(falls.name);
   }
-}
-
-function updateCamera() {
-  camera.x = clamp(player.x - canvas.width / 2, 0, world.width - canvas.width);
-  camera.y = clamp(player.y - canvas.height / 2, 0, world.height - canvas.height);
 }
 
 function render(time) {
-  drawBiomeGround(time);
-  drawRiversAndFalls(time);
-  drawTrees();
-  drawTowns();
-  drawNpcs();
-  drawWildlife();
-  drawCompanions();
-  drawPlayer();
-  drawCompass();
-}
+  const w = canvas.width;
+  const h = canvas.height;
+  const horizon = h * 0.41;
+  const camScale = 650;
 
-function drawBiomeGround(time) {
-  const tile = 64;
-  for (let sy = 0; sy < canvas.height + tile; sy += tile) {
-    for (let sx = 0; sx < canvas.width + tile; sx += tile) {
-      const wx = sx + camera.x;
-      const wy = sy + camera.y;
-      const biome = getBiome(wx, wy);
-      const base = biomeBaseColor(biome);
-      const noise = Math.sin(wx * 0.014 + time * 0.15) + Math.cos(wy * 0.012);
-      ctx.fillStyle = shadeColor(base, noise * 10);
-      ctx.fillRect(sx - (camera.x % tile), sy - (camera.y % tile), tile + 1, tile + 1);
+  const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+  sky.addColorStop(0, "#8aa2be");
+  sky.addColorStop(1, "#e2b07b");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, horizon);
+
+  drawFarMountains(horizon);
+
+  const stepX = 2;
+  const stepY = 2;
+  for (let sy = Math.floor(horizon); sy < h; sy += stepY) {
+    const dist = (player.y * camScale) / Math.max(1, sy - horizon);
+    for (let sx = 0; sx < w; sx += stepX) {
+      const ray = player.angle + ((sx / w) - 0.5) * FOV;
+      const wx = player.x + Math.cos(ray) * dist;
+      const wz = player.z + Math.sin(ray) * dist;
+
+      const biome = getBiome(wx, wz);
+      let col = terrainColor(biome, wx, wz, time);
+
+      const fog = clamp(dist / 2600, 0, 0.75);
+      col = mixColor(col, "#9ba5af", fog);
+
+      ctx.fillStyle = col;
+      ctx.fillRect(sx, sy, stepX + 1, stepY + 1);
     }
   }
+
+  drawSceneObjects(horizon, camScale, time);
 }
 
-function drawRiversAndFalls(time) {
-  for (const river of rivers) {
-    ctx.beginPath();
-    for (let x = camera.x - 80; x < camera.x + canvas.width + 80; x += 24) {
-      const y = river.path(x);
-      const sx = x - camera.x;
-      const sy = y - camera.y;
-      if (x === camera.x - 80) ctx.moveTo(sx, sy);
-      else ctx.lineTo(sx, sy);
-    }
-    ctx.strokeStyle = "#4ca9d4";
-    ctx.lineWidth = river.width;
-    ctx.lineCap = "round";
-    ctx.stroke();
-
-    ctx.strokeStyle = `rgba(177, 225, 245, ${0.35 + Math.sin(time * 1.6) * 0.12})`;
-    ctx.lineWidth = river.width * 0.24;
-    ctx.stroke();
+function drawFarMountains(horizon) {
+  ctx.fillStyle = "#59626f";
+  ctx.beginPath();
+  ctx.moveTo(0, horizon + 48);
+  for (let x = 0; x <= canvas.width; x += 12) {
+    const nx = x / canvas.width;
+    const y = horizon + 20 + Math.sin(nx * 11) * 26 + Math.cos(nx * 20) * 14;
+    ctx.lineTo(x, y);
   }
-
-  for (const falls of waterfalls) {
-    const sx = falls.x - camera.x;
-    const sy = falls.y - camera.y;
-    if (sx < -90 || sx > canvas.width + 90 || sy < -90 || sy > canvas.height + 90) continue;
-
-    ctx.fillStyle = "rgba(200,240,255,0.85)";
-    ctx.fillRect(sx - 22, sy - 52, 44, 64);
-    ctx.fillStyle = `rgba(176,230,255,${0.2 + Math.sin(time * 3) * 0.08})`;
-    ctx.beginPath();
-    ctx.ellipse(sx, sy + 16, 42, 16, 0, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  ctx.lineTo(canvas.width, horizon + 80);
+  ctx.lineTo(0, horizon + 80);
+  ctx.closePath();
+  ctx.fill();
 }
 
-function drawTrees() {
-  for (const tree of trees) {
-    const x = tree.x - camera.x;
-    const y = tree.y - camera.y;
-    if (x < -80 || y < -110 || x > canvas.width + 80 || y > canvas.height + 80) continue;
+function drawSceneObjects(horizon, camScale, time) {
+  const objects = [];
 
-    ctx.fillStyle = "#5a3a24";
-    ctx.fillRect(x - tree.trunkWidth / 2, y - tree.trunkHeight / 2, tree.trunkWidth, tree.trunkHeight);
-
-    ctx.fillStyle = tree.color;
-    ctx.beginPath();
-    ctx.arc(x, y - tree.trunkHeight / 2, tree.canopy, 0, Math.PI * 2);
-    ctx.fill();
+  const closeTrees = nearestChunk(trees, 1800);
+  for (const tree of closeTrees) {
+    objects.push({ type: "tree", x: tree.x, z: tree.z, h: tree.h, w: tree.w, color: tree.color });
   }
-}
 
-function drawTowns() {
   for (const town of towns) {
-    const sx = town.x - camera.x;
-    const sy = town.y - camera.y;
-    if (sx < -500 || sy < -500 || sx > canvas.width + 500 || sy > canvas.height + 500) continue;
-
-    ctx.strokeStyle = "rgba(252, 218, 146, 0.35)";
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(sx, sy, town.radius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    drawHouse(town, sx + 36, sy + 22);
-
-    ctx.fillStyle = "#f6e9c2";
-    ctx.font = "14px sans-serif";
-    ctx.fillText(town.name, sx - 44, sy - town.radius - 8);
+    objects.push({ type: "town", x: town.x, z: town.z, town });
   }
 
-  for (const pet of adoptablePets) {
-    const sx = pet.x - camera.x;
-    const sy = pet.y - camera.y;
-    if (sx < -40 || sy < -40 || sx > canvas.width + 40 || sy > canvas.height + 40) continue;
-    ctx.fillStyle = pet.color;
-    ctx.beginPath();
-    ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#111";
-    ctx.fillText(pet.kind, sx + 9, sy + 4);
+  for (const npc of npcs) objects.push({ type: "npc", x: npc.x, z: npc.z, npc });
+  for (const pet of adoptablePets) objects.push({ type: "adopt", x: pet.x, z: pet.z, pet });
+  for (const animal of wildlife) objects.push({ type: "animal", x: animal.x, z: animal.z, animal });
+  companions.forEach((pet, idx) => objects.push({ type: "companion", x: pet.x, z: pet.z, pet, idx }));
+  waterfalls.forEach((falls) => objects.push({ type: "falls", x: falls.x, z: falls.z, falls }));
+
+  const visible = [];
+  for (const obj of objects) {
+    const p = project(obj.x, obj.z, horizon, camScale);
+    if (!p || p.depth > 3000) continue;
+    visible.push({ ...obj, ...p });
   }
+
+  visible.sort((a, b) => b.depth - a.depth);
+
+  for (const obj of visible) {
+    switch (obj.type) {
+      case "tree":
+        drawTreeSprite(obj);
+        break;
+      case "town":
+        drawTownSprite(obj);
+        break;
+      case "npc":
+        drawPerson(obj, "#39558f", 56);
+        break;
+      case "adopt":
+        drawPetSprite(obj.screenX, obj.groundY, obj.scale, obj.pet.color, false);
+        drawLabel(obj.pet.kind, obj.screenX + 8, obj.groundY - 24);
+        break;
+      case "animal":
+        drawAnimal(obj);
+        break;
+      case "companion":
+        drawPetSprite(obj.screenX, obj.groundY, obj.scale, obj.pet.color, obj.idx === activeCompanion, obj.pet.wag + time * 4);
+        break;
+      case "falls":
+        drawWaterfall(obj, time);
+        break;
+      default:
+        break;
+    }
+  }
+
+  drawPlayerHands();
 }
 
-function drawHouse(town, x, y) {
+function drawTreeSprite(obj) {
+  const trunkW = obj.scale * 8;
+  const trunkH = obj.scale * 24;
+  const crownR = obj.scale * 22;
+  ctx.fillStyle = "#614027";
+  ctx.fillRect(obj.screenX - trunkW / 2, obj.groundY - trunkH, trunkW, trunkH);
+
+  ctx.fillStyle = obj.color;
+  ctx.beginPath();
+  ctx.arc(obj.screenX, obj.groundY - trunkH - crownR * 0.8, crownR, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawTownSprite(obj) {
+  const { town } = obj;
   const wallColors = ["#c58f6d", "#8ca0b5", "#d8c89d"];
   const roofColors = ["#894938", "#586274", "#6f8a4f"];
   const decorColors = ["#f4b35f", "#9ed5b5", "#f7e39a"];
 
+  const w = obj.scale * 44;
+  const h = obj.scale * 28;
   ctx.fillStyle = wallColors[town.home.wall];
-  ctx.fillRect(x - 28, y - 18, 56, 34);
+  ctx.fillRect(obj.screenX - w / 2, obj.groundY - h, w, h);
 
   ctx.fillStyle = roofColors[town.home.roof];
   ctx.beginPath();
-  ctx.moveTo(x - 36, y - 18);
-  ctx.lineTo(x, y - 44);
-  ctx.lineTo(x + 36, y - 18);
+  ctx.moveTo(obj.screenX - w * 0.62, obj.groundY - h);
+  ctx.lineTo(obj.screenX, obj.groundY - h - obj.scale * 20);
+  ctx.lineTo(obj.screenX + w * 0.62, obj.groundY - h);
   ctx.closePath();
   ctx.fill();
 
   ctx.fillStyle = decorColors[town.home.decor];
+  ctx.fillRect(obj.screenX - obj.scale * 8, obj.groundY - obj.scale * 11, obj.scale * 16, obj.scale * 8);
+  drawLabel(town.name, obj.screenX - w * 0.5, obj.groundY - h - obj.scale * 16);
+}
+
+function drawPerson(obj, bodyColor, h) {
+  const r = obj.scale * 6;
+  ctx.fillStyle = bodyColor;
+  ctx.fillRect(obj.screenX - r, obj.groundY - obj.scale * h, r * 2, obj.scale * (h - 12));
+  ctx.fillStyle = "#f2d4ae";
   ctx.beginPath();
-  ctx.arc(x - 15, y + 7, 6, 0, Math.PI * 2);
-  ctx.arc(x + 15, y + 7, 6, 0, Math.PI * 2);
+  ctx.arc(obj.screenX, obj.groundY - obj.scale * h, obj.scale * 6, 0, Math.PI * 2);
+  ctx.fill();
+  drawLabel(obj.npc.name, obj.screenX - obj.scale * 14, obj.groundY - obj.scale * (h + 14));
+}
+
+function drawPetSprite(x, y, scale, color, active, wagT = 0) {
+  const bodyW = scale * (active ? 24 : 19);
+  const bodyH = scale * (active ? 15 : 12);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x, y - bodyH * 0.6, bodyW * 0.5, bodyH * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = shadeColor(color, -24);
+  ctx.lineWidth = Math.max(1, scale * 3);
+  ctx.beginPath();
+  ctx.moveTo(x - bodyW * 0.45, y - bodyH * 0.7);
+  ctx.quadraticCurveTo(x - bodyW * 0.62 + Math.sin(wagT) * scale * 8, y - bodyH, x - bodyW * 0.8, y - bodyH * 0.65);
+  ctx.stroke();
+}
+
+function drawAnimal(obj) {
+  const w = obj.scale * (obj.animal.type === "Deer" ? 20 : 14);
+  const h = obj.scale * (obj.animal.type === "Deer" ? 13 : 9);
+  ctx.fillStyle = obj.animal.color;
+  ctx.beginPath();
+  ctx.ellipse(obj.screenX, obj.groundY - h * 0.6, w * 0.5, h * 0.5, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
-function drawNpcs() {
-  for (const npc of npcs) {
-    const sx = npc.x - camera.x;
-    const sy = npc.y - camera.y;
-    if (sx < -30 || sy < -40 || sx > canvas.width + 30 || sy > canvas.height + 30) continue;
-
-    ctx.fillStyle = "#394f8c";
-    ctx.beginPath();
-    ctx.arc(sx, sy, 10, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#f2d3aa";
-    ctx.beginPath();
-    ctx.arc(sx, sy - 13, 7, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#f8edca";
-    ctx.font = "12px sans-serif";
-    ctx.fillText(npc.name, sx - 14, sy - 22);
-  }
-}
-
-function drawWildlife() {
-  for (const animal of wildlife) {
-    const sx = animal.x - camera.x;
-    const sy = animal.y - camera.y;
-    if (sx < -35 || sy < -35 || sx > canvas.width + 35 || sy > canvas.height + 35) continue;
-
-    ctx.fillStyle = animal.hue;
-    ctx.beginPath();
-    ctx.ellipse(sx, sy, animal.type === "Deer" ? 10 : 7, animal.type === "Deer" ? 6 : 5, animal.dir, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawPlayer() {
-  const x = player.x - camera.x;
-  const y = player.y - camera.y;
-
-  ctx.fillStyle = "#1f2d5c";
+function drawWaterfall(obj, time) {
+  const h = obj.scale * 56;
+  const w = obj.scale * 22;
+  ctx.fillStyle = "rgba(198,237,255,0.85)";
+  ctx.fillRect(obj.screenX - w * 0.5, obj.groundY - h, w, h);
+  ctx.fillStyle = `rgba(153,218,255,${0.26 + Math.sin(time * 4) * 0.09})`;
   ctx.beginPath();
-  ctx.arc(x, y, player.radius, 0, Math.PI * 2);
+  ctx.ellipse(obj.screenX, obj.groundY - 2, w * 1.35, obj.scale * 7, 0, 0, Math.PI * 2);
   ctx.fill();
-
-  ctx.fillStyle = "#f1d2a8";
-  ctx.beginPath();
-  ctx.arc(x, y - 15, 8, 0, Math.PI * 2);
-  ctx.fill();
+  drawLabel(obj.falls.name, obj.screenX - w * 1.2, obj.groundY - h - obj.scale * 10);
 }
 
-function drawCompanions() {
-  companions.forEach((pet, idx) => {
-    const x = pet.x - camera.x;
-    const y = pet.y - camera.y;
-    const isActive = idx === activeCompanion;
-
-    ctx.fillStyle = pet.color;
-    ctx.beginPath();
-    ctx.ellipse(x, y, isActive ? 13 : 11, isActive ? 9 : 8, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    const wag = Math.sin(pet.wagTime) * (isActive ? 8 : 5);
-    ctx.strokeStyle = shadeColor(pet.color, -22);
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(x - 10, y + 1);
-    ctx.quadraticCurveTo(x - 16 + wag, y - 4, x - 22 + wag, y + 4);
-    ctx.stroke();
-  });
-}
-
-function drawCompass() {
-  const margin = 14;
-  const size = 116;
-  const x = canvas.width - size - margin;
-  const y = margin;
-
-  ctx.fillStyle = "rgba(9, 14, 11, 0.54)";
-  ctx.fillRect(x, y, size, size);
-  ctx.strokeStyle = "rgba(255, 221, 178, 0.45)";
-  ctx.strokeRect(x, y, size, size);
-
-  const px = (player.x / world.width) * size;
-  const py = (player.y / world.height) * size;
-
-  ctx.fillStyle = "#f4be4f";
-  ctx.beginPath();
-  ctx.arc(x + px, y + py, 4, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.fillStyle = "#f7efd3";
+function drawLabel(text, x, y) {
+  ctx.fillStyle = "rgba(0,0,0,0.45)";
+  ctx.fillRect(x - 3, y - 11, text.length * 7.2, 14);
+  ctx.fillStyle = "#ffeec5";
   ctx.font = "12px sans-serif";
-  ctx.fillText("N", x + size / 2 - 4, y + 12);
+  ctx.fillText(text, x, y);
+}
+
+function drawPlayerHands() {
+  const y = canvas.height - 38;
+  ctx.fillStyle = "#2b3555";
+  ctx.fillRect(canvas.width * 0.25 - 70, y, 130, 44);
+  ctx.fillRect(canvas.width * 0.75 - 60, y, 120, 44);
 }
 
 function updateHud() {
-  const biome = biomeNames[getBiome(player.x, player.y)];
-  const town = nearestTown(190);
-  const active = companions[activeCompanion];
-
+  const town = nearestTown(360);
+  const biome = biomeNames[getBiome(player.x, player.z)];
   statusEl.textContent = [
+    `Mode: 3D Retro Adventure`,
     `Biome: ${biome}`,
-    `Companion: ${active.kind} (${activeCompanion + 1}/${companions.length})`,
-    `Discovered Biomes: ${discoveredBiomes.size}/${Object.keys(biomeNames).length}`,
-    `Waterfalls Found: ${discoveredFalls.size}/${waterfalls.length}`,
+    `Companion: ${companions[activeCompanion].kind} (${activeCompanion + 1}/${companions.length})`,
+    `Discovered: ${discoveredBiomes.size}/${Object.keys(biomeNames).length} biomes`,
+    `Waterfalls: ${discoveredFalls.size}/${waterfalls.length}`,
     town ? `Town: ${town.name} ${buildMode ? "(Build Mode)" : ""}` : "Town: wilderness",
   ].join("  •  ");
 
-  dialogueEl.textContent = messageTimer > 0 ? message : "Explore the wilds, chat with townsfolk, adopt companions, and craft your cozy home.";
+  dialogueEl.textContent = messageTimer > 0
+    ? message
+    : "WASD move, Arrow Left/Right turn, F interact, B build in town, P swap pet. Explore like a cozy PS2-era world.";
 }
 
-function nearestTown(maxDist) {
-  let best = null;
-  let bestDist = maxDist;
-  for (const town of towns) {
-    const d = Math.hypot(player.x - town.x, player.y - town.y);
-    if (d < bestDist) {
-      bestDist = d;
-      best = town;
-    }
-  }
-  return best;
+function project(x, z, horizon, camScale) {
+  const dx = x - player.x;
+  const dz = z - player.z;
+  const sin = Math.sin(player.angle);
+  const cos = Math.cos(player.angle);
+  const depth = dx * cos + dz * sin;
+  const side = -dx * sin + dz * cos;
+  if (depth <= 3) return null;
+
+  const screenX = canvas.width / 2 + (side / depth) * camScale;
+  const ground = terrainHeight(x, z);
+  const groundY = horizon + ((player.y - ground) / depth) * camScale;
+  const scale = camScale / depth;
+  return { depth, screenX, groundY, scale };
 }
 
 function nearestEntity(list, maxDist) {
   let best = null;
-  let bestDist = maxDist;
+  let dist = maxDist;
   for (const item of list) {
-    const d = Math.hypot(player.x - item.x, player.y - item.y);
-    if (d < bestDist) {
-      bestDist = d;
+    const d = Math.hypot(player.x - item.x, player.z - item.z);
+    if (d < dist) {
+      dist = d;
       best = item;
     }
   }
   return best;
 }
 
-function getBiome(x, y) {
-  const noise = Math.sin(x * 0.0009) + Math.cos(y * 0.0008) + Math.sin((x + y) * 0.00035);
-  const riverDist = distanceToRiver(x, y);
+function nearestTown(maxDist) {
+  return nearestEntity(towns, maxDist);
+}
 
-  if (riverDist < 62) return "lakeside";
-  if (noise > 1.3) return "mountain";
-  if (noise > 0.35) return "autumnForest";
-  if (noise > -0.45) return "pineWoods";
+function nearestChunk(list, maxDist) {
+  const out = [];
+  for (const item of list) {
+    if (Math.abs(item.x - player.x) < maxDist && Math.abs(item.z - player.z) < maxDist) out.push(item);
+  }
+  return out;
+}
+
+function getBiome(x, z) {
+  const riverD = distanceToRiver(x, z);
+  const noise = Math.sin(x * 0.0008) + Math.cos(z * 0.00095) + Math.sin((x + z) * 0.00024);
+  if (riverD < 78) return "lakeside";
+  if (noise > 1.35) return "mountain";
+  if (noise > 0.3) return "autumn";
+  if (noise > -0.5) return "pine";
   return "meadow";
 }
 
-function distanceToRiver(x, y) {
+function terrainHeight(x, z) {
+  const undulate = Math.sin(x * 0.0021) * 22 + Math.cos(z * 0.0018) * 20 + Math.sin((x + z) * 0.0009) * 16;
+  const mnt = Math.max(0, Math.sin(x * 0.0007 + 0.7) + Math.cos(z * 0.00065) - 1.05) * 120;
+  const river = Math.max(0, 70 - distanceToRiver(x, z)) * 0.55;
+  return undulate + mnt - river;
+}
+
+function distanceToRiver(x, z) {
   let best = Number.POSITIVE_INFINITY;
   for (const river of rivers) {
-    const ry = river.path(x);
-    best = Math.min(best, Math.abs(ry - y));
+    const rz = river.path(x);
+    best = Math.min(best, Math.abs(rz - z));
   }
   return best;
 }
 
-function biomeBaseColor(biome) {
+function terrainColor(biome, x, z, time) {
+  const flicker = (Math.sin(x * 0.01 + time * 0.4) + Math.cos(z * 0.01)) * 4;
+  if (distanceToRiver(x, z) < 68) return shadeColor("#4f9fca", flicker);
   switch (biome) {
     case "mountain":
-      return "#56626b";
-    case "pineWoods":
-      return "#38543e";
+      return shadeColor("#66707b", flicker);
+    case "pine":
+      return shadeColor("#34533f", flicker);
     case "meadow":
-      return "#8f8240";
+      return shadeColor("#8b8241", flicker);
     case "lakeside":
-      return "#3f7d86";
+      return shadeColor("#4e8f98", flicker);
     default:
-      return "#5b653f";
+      return shadeColor("#5d643e", flicker);
   }
+}
+
+function biomeLeafColor(biome, n) {
+  if (biome === "pine") return n > 0.5 ? "#356642" : "#2f5c3c";
+  if (biome === "meadow") return n > 0.5 ? "#aa9c43" : "#bcab58";
+  if (biome === "mountain") return n > 0.5 ? "#6c757d" : "#7a838d";
+  if (biome === "lakeside") return n > 0.5 ? "#5aa5b1" : "#6fb3be";
+  const autumn = ["#de6a2c", "#f39c12", "#c84727", "#f4be4f", "#9f3f2e"];
+  return autumn[Math.floor(n * autumn.length) % autumn.length];
 }
 
 function setMessage(text) {
@@ -565,13 +532,21 @@ function setMessage(text) {
   messageTimer = 6;
 }
 
+function mixColor(c1, c2, t) {
+  const a = hexToRgb(c1);
+  const b = hexToRgb(c2);
+  return `rgb(${Math.round(a.r + (b.r - a.r) * t)}, ${Math.round(a.g + (b.g - a.g) * t)}, ${Math.round(a.b + (b.b - a.b) * t)})`;
+}
+
+function hexToRgb(hex) {
+  const h = hex.replace("#", "");
+  const n = Number.parseInt(h, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
 function shadeColor(hex, amount) {
-  const clean = hex.replace("#", "");
-  const n = Number.parseInt(clean, 16);
-  const r = clamp(((n >> 16) & 255) + amount, 0, 255);
-  const g = clamp(((n >> 8) & 255) + amount, 0, 255);
-  const b = clamp((n & 255) + amount, 0, 255);
-  return `rgb(${r}, ${g}, ${b})`;
+  const rgb = hexToRgb(hex);
+  return `rgb(${clamp(rgb.r + amount, 0, 255)}, ${clamp(rgb.g + amount, 0, 255)}, ${clamp(rgb.b + amount, 0, 255)})`;
 }
 
 function seededRandom(seed) {
@@ -582,6 +557,6 @@ function seededRandom(seed) {
   };
 }
 
-function clamp(value, min, max) {
-  return Math.min(max, Math.max(min, value));
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
