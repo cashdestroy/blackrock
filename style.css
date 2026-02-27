@@ -1,0 +1,44 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #2f3d33 0%, #121a13 60%, #090d0a 100%);
+  color: #f7efd3;
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.hud {
+  text-align: center;
+  max-width: 900px;
+}
+
+.hud h1 {
+  margin: 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hud p {
+  margin: 0.35rem 0 0;
+  color: #d7c9a2;
+}
+
+canvas {
+  border: 4px solid #8d5e3c;
+  border-radius: 10px;
+  box-shadow: 0 14px 30px rgb(0 0 0 / 0.5);
+  background: #273428;
+  max-width: 100%;
+  height: auto;
+}
