@@ -65,6 +65,20 @@ const wildlife = Array.from({ length: 80 }, (_, i) => {
   };
 });
 
+
+
+const rivers = [
+  { name: "Amber Run", width: 120, path: (x) => world.depth * 0.3 + Math.sin(x * 0.0012) * 430 + Math.sin(x * 0.0048) * 90 },
+  { name: "Moonbrook", width: 90, path: (x) => world.depth * 0.72 + Math.cos(x * 0.0011 + 0.6) * 340 },
+];
+
+const waterfalls = [
+  { name: "Silver Drop", x: 4900, z: rivers[0].path(4900) },
+  { name: "Whisper Falls", x: 10900, z: rivers[1].path(10900) },
+];
+
+
+
 const trees = Array.from({ length: 2200 }, (_, i) => {
   const rand = seededRandom(i * 193 + 17);
   const x = rand() * world.width;
@@ -79,15 +93,6 @@ const trees = Array.from({ length: 2200 }, (_, i) => {
   };
 });
 
-const rivers = [
-  { name: "Amber Run", width: 120, path: (x) => world.depth * 0.3 + Math.sin(x * 0.0012) * 430 + Math.sin(x * 0.0048) * 90 },
-  { name: "Moonbrook", width: 90, path: (x) => world.depth * 0.72 + Math.cos(x * 0.0011 + 0.6) * 340 },
-];
-
-const waterfalls = [
-  { name: "Silver Drop", x: 4900, z: rivers[0].path(4900) },
-  { name: "Whisper Falls", x: 10900, z: rivers[1].path(10900) },
-];
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
