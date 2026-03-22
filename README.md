@@ -4,7 +4,7 @@ A lightweight web app for faster Depop-to-Poshmark cross-listing with **manual m
 
 ## What changed
 
-- ✅ Manual cross-list flow: paste a Depop URL, fill listing details, add image URLs, create a Poshmark-ready draft.
+- ✅ Manual cross-list flow: paste a Depop URL and click **Autofill from link** to pull title, description, and image URLs (best effort), then edit before saving.
 - ✅ Optional JSON flow still available for bulk conversions.
 - ✅ “Open workflow” button opens Depop listing + Poshmark sell page in separate tabs.
 - ✅ CSV export for all generated drafts.
@@ -32,8 +32,8 @@ Then open `http://localhost:8080`.
 
 ### Manual mode
 - Depop URL: `https://www.depop.com/products/...`
-- Title, description, price, category, brand, size, condition, color
-- Image URLs (one per line)
+- Paste Depop URL and click **Autofill from link** to prefill title/description/images
+- Edit title, description, size, price, and all other fields before adding draft
 
 ### JSON mode
 
@@ -53,3 +53,9 @@ Then open `http://localhost:8080`.
   }
 ]
 ```
+
+
+## Autofill notes
+
+- Autofill from link works by trying public fetch proxies and parsing metadata (`og:title`, `og:description`, `og:image`) from the Depop listing page.
+- Because third-party sites can block scraping or change markup, autofill is best-effort and fields remain editable.

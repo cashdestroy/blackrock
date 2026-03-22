@@ -8,6 +8,8 @@ const cardTemplate = document.querySelector('#cardTemplate');
 
 const addManualBtn = document.querySelector('#addManualBtn');
 const clearManualBtn = document.querySelector('#clearManualBtn');
+const autofillBtn = document.querySelector('#autofillBtn');
+const autofillStatus = document.querySelector('#autofillStatus');
 const manualFields = {
   depop_url: document.querySelector('#manualDepopUrl'),
   title: document.querySelector('#manualTitle'),
@@ -49,6 +51,99 @@ const categoryMap = {
   skirt: 'Women / Skirts / Mini',
   tee: 'Women / Tops / Tees - Short Sleeve',
 };
+
+
+function extractFirst(doc, selectors) {
+  for (const selector of selectors) {
+    const node = doc.querySelector(selector);
+    if (node?.content) return cleanText(node.content);
+    if (node?.textContent) return cleanText(node.textContent);
+  }
+  return '';
+}
+
+function extractImagesFromHtml(html, doc) {
+  const ogImages = [...doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')]
+    .map((node) => cleanText(node.content))
+    .filter(Boolean);
+
+  const jsonLdMatches = [...html.matchAll(/"image"\s*:\s*(\[[^\]]+\]|"[^"]+")/g)]
+    .map((match) => match[1])
+    .flatMap((raw) => {
+      if (raw.startsWith('[')) {
+        return [...raw.matchAll(/"(https?:\/\/[^"\\]+)"/g)].map((m) => m[1].replace(/\\\//g, '/'));
+      }
+      return [raw.replaceAll('"', '').replace(/\\\//g, '/')];
+    });
+
+  return [...new Set([...ogImages, ...jsonLdMatches].filter(Boolean))].slice(0, 16);
+}
+
+function inferSize(text) {
+  const haystack = text.toUpperCase();
+  const letter = haystack.match(/\b(XXS|XS|S|M|L|XL|XXL|XXXL)\b/);
+  if (letter) return letter[1];
+  const waist = haystack.match(/\bW\s?(\d{2})\b/);
+  if (waist) return `W${waist[1]}`;
+  const shoe = haystack.match(/\b(?:SIZE\s*)?(\d{1,2}(?:\.5)?)\b/);
+  return shoe ? shoe[1] : '';
+}
+
+async function fetchDepopRawHtml(depopUrl) {
+  const targets = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(depopUrl)}`,
+    `https://r.jina.ai/http://${depopUrl.replace(/^https?:\/\//, '')}`,
+  ];
+
+  let lastError = null;
+  for (const url of targets) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const text = await response.text();
+      if (text && text.length > 100) return text;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('Unable to fetch Depop listing data.');
+}
+
+async function autofillFromDepopUrl() {
+  const depopUrl = cleanText(manualFields.depop_url.value);
+  if (!depopUrl) {
+    autofillStatus.textContent = '❌ Add a Depop listing URL first.';
+    return;
+  }
+
+  autofillStatus.textContent = 'Fetching listing details from Depop link...';
+  autofillBtn.disabled = true;
+
+  try {
+    const html = await fetchDepopRawHtml(depopUrl);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    const title = extractFirst(doc, ['meta[property="og:title"]', 'title']);
+    const description = extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']);
+    const images = extractImagesFromHtml(html, doc);
+
+    if (title && !manualFields.title.value) manualFields.title.value = title;
+    if (description && !manualFields.description.value) manualFields.description.value = description;
+    if (images.length && !manualFields.images.value) manualFields.images.value = images.join('\n');
+
+    const textBlob = `${title} ${description}`;
+    if (!manualFields.size.value) {
+      const guessedSize = inferSize(textBlob);
+      if (guessedSize) manualFields.size.value = guessedSize;
+    }
+
+    autofillStatus.textContent = `✅ Autofilled fields from link. Review/edit before adding draft.`;
+  } catch (error) {
+    autofillStatus.textContent = `❌ Could not auto-read this link (${error.message}). You can still fill manually.`;
+  } finally {
+    autofillBtn.disabled = false;
+  }
+}
 
 function cleanText(value = '') {
   return String(value).replace(/\s+/g, ' ').trim();
@@ -237,6 +332,7 @@ addManualBtn.addEventListener('click', () => {
 });
 
 clearManualBtn.addEventListener('click', clearManualForm);
+autofillBtn.addEventListener('click', autofillFromDepopUrl);
 
 loadSampleBtn.addEventListener('click', () => {
   depopInput.value = JSON.stringify(sampleListings, null, 2);

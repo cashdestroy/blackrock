@@ -20,7 +20,10 @@
         <h2>Quick cross-list mode (no JSON required)</h2>
         <div class="grid2">
           <label>Depop listing URL
-            <input id="manualDepopUrl" placeholder="https://www.depop.com/products/..." />
+            <div class="inline">
+              <input id="manualDepopUrl" placeholder="https://www.depop.com/products/..." />
+              <button id="autofillBtn" type="button">Autofill from link</button>
+            </div>
           </label>
           <label>Title
             <input id="manualTitle" placeholder="Vintage Levi's 501 Jeans" />
@@ -55,6 +58,8 @@
         <label>Image URLs (one per line)
           <textarea id="manualImages" rows="3" placeholder="https://...\nhttps://..."></textarea>
         </label>
+
+        <div id="autofillStatus" class="status"></div>
 
         <div class="row">
           <button id="addManualBtn" class="primary">Add listing draft</button>
