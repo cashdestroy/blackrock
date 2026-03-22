@@ -1,5 +1,4 @@
 :root {
-  --bg: #111827;
   --panel: #1f2937;
   --text: #e5e7eb;
   --subtle: #9ca3af;
@@ -9,9 +8,7 @@
   --accent: #3b82f6;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
@@ -21,36 +18,47 @@ body {
 }
 
 .container {
-  max-width: 980px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 24px 16px 64px;
 }
 
-h1, h2, h3 {
-  margin: 0 0 12px;
-}
-
-header p,
-.hint {
-  color: var(--subtle);
-}
+h1, h2, h3 { margin: 0 0 12px; }
+header p, .hint { color: var(--subtle); }
 
 .panel {
-  background: rgba(31, 41, 55, 0.8);
+  background: rgba(31, 41, 55, 0.84);
   border: 1px solid rgba(156, 163, 175, 0.15);
   border-radius: 12px;
   padding: 16px;
   margin-top: 18px;
 }
 
+label {
+  display: block;
+  margin: 8px 0;
+  font-size: 0.94rem;
+  color: #d1d5db;
+}
+
+input,
+select,
 textarea {
   width: 100%;
+  margin-top: 6px;
   border-radius: 10px;
-  border: 1px solid rgba(156, 163, 175, 0.2);
+  border: 1px solid rgba(156, 163, 175, 0.25);
   background: #0f172a;
   color: var(--text);
-  padding: 12px;
-  resize: vertical;
+  padding: 10px 12px;
+}
+
+textarea { resize: vertical; }
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 button {
@@ -79,15 +87,8 @@ button:disabled {
   margin-top: 10px;
 }
 
-.summary {
-  margin-bottom: 12px;
-  color: var(--subtle);
-}
-
-.results {
-  display: grid;
-  gap: 12px;
-}
+.summary { margin-bottom: 12px; color: var(--subtle); }
+.results { display: grid; gap: 12px; }
 
 .card {
   border: 1px solid rgba(156, 163, 175, 0.2);
@@ -102,31 +103,22 @@ button:disabled {
   gap: 12px;
 }
 
-.score {
-  font-weight: 700;
-}
-
+.score { font-weight: 700; }
 .score.good { color: var(--good); }
 .score.warn { color: var(--warn); }
 .score.bad { color: var(--bad); }
 
 .fields {
   display: grid;
-  grid-template-columns: 140px 1fr;
+  grid-template-columns: 150px 1fr;
   gap: 4px 10px;
   margin: 10px 0;
 }
 
 .fields dt { color: var(--subtle); }
 .fields dd { margin: 0; }
+.warnings { color: var(--warn); font-size: 0.95rem; }
 
-.warnings {
-  color: var(--warn);
-  font-size: 0.95rem;
-}
-
-code {
-  background: rgba(156, 163, 175, 0.15);
-  padding: 1px 4px;
-  border-radius: 4px;
+@media (max-width: 760px) {
+  .grid2 { grid-template-columns: 1fr; }
 }

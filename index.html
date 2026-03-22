@@ -11,28 +11,76 @@
       <header>
         <h1>Depop → Poshmark Crosslister</h1>
         <p>
-          Paste Depop listings JSON, auto-map to Poshmark-friendly fields, validate quality,
-          then copy or export a CSV in seconds.
+          Cross-list without raw JSON: paste a Depop URL + listing details, get a Poshmark-ready
+          draft, copy with one click, and export CSV.
         </p>
       </header>
 
       <section class="panel">
-        <h2>1) Add Depop listings</h2>
+        <h2>Quick cross-list mode (no JSON required)</h2>
+        <div class="grid2">
+          <label>Depop listing URL
+            <input id="manualDepopUrl" placeholder="https://www.depop.com/products/..." />
+          </label>
+          <label>Title
+            <input id="manualTitle" placeholder="Vintage Levi's 501 Jeans" />
+          </label>
+          <label>Price (USD)
+            <input id="manualPrice" type="number" min="0" step="1" placeholder="58" />
+          </label>
+          <label>Category
+            <input id="manualCategory" placeholder="mens jeans" />
+          </label>
+          <label>Brand
+            <input id="manualBrand" placeholder="Levi's" />
+          </label>
+          <label>Size
+            <input id="manualSize" placeholder="W32 L30" />
+          </label>
+          <label>Condition
+            <select id="manualCondition">
+              <option>new</option>
+              <option selected>good</option>
+              <option>fair</option>
+            </select>
+          </label>
+          <label>Color
+            <input id="manualColor" placeholder="Blue" />
+          </label>
+        </div>
+
+        <label>Description
+          <textarea id="manualDescription" rows="4" placeholder="Fit, material, flaws, measurements..."></textarea>
+        </label>
+        <label>Image URLs (one per line)
+          <textarea id="manualImages" rows="3" placeholder="https://...\nhttps://..."></textarea>
+        </label>
+
+        <div class="row">
+          <button id="addManualBtn" class="primary">Add listing draft</button>
+          <button id="clearManualBtn">Clear form</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Bulk JSON mode (optional)</h2>
         <p class="hint">
-          Expected format: array of objects with keys like
-          <code>title</code>, <code>description</code>, <code>price</code>, <code>category</code>,
-          <code>brand</code>, <code>size</code>, <code>condition</code>, <code>color</code>, <code>images</code>.
+          If you do have structured data, paste an array of listing objects here.
         </p>
-        <textarea id="depopInput" rows="10"></textarea>
+        <textarea id="depopInput" rows="7"></textarea>
         <div class="row">
           <button id="loadSample">Load sample</button>
-          <button id="transformBtn" class="primary">Transform listings</button>
+          <button id="transformBtn">Transform JSON listings</button>
           <button id="downloadBtn" disabled>Download Poshmark CSV</button>
         </div>
       </section>
 
       <section class="panel">
-        <h2>2) Mapped Poshmark listings</h2>
+        <h2>Mapped Poshmark listings</h2>
+        <p class="hint">
+          Login automation is not included (marketplace anti-bot rules vary). Use “Open workflow”
+          to jump between tabs, then paste generated values into Poshmark's sell form.
+        </p>
         <div id="summary" class="summary"></div>
         <div id="results" class="results"></div>
       </section>
@@ -48,6 +96,8 @@
         <div class="warnings"></div>
         <div class="row">
           <button class="copyBtn">Copy listing JSON</button>
+          <button class="copyTextBtn">Copy formatted text</button>
+          <button class="openFlowBtn">Open workflow</button>
         </div>
       </article>
     </template>
