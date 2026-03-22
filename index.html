@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Depop → Poshmark Crosslister</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <header>
+        <h1>Depop → Poshmark Crosslister</h1>
+        <p>
+          Paste Depop listings JSON, auto-map to Poshmark-friendly fields, validate quality,
+          then copy or export a CSV in seconds.
+        </p>
+      </header>
+
+      <section class="panel">
+        <h2>1) Add Depop listings</h2>
+        <p class="hint">
+          Expected format: array of objects with keys like
+          <code>title</code>, <code>description</code>, <code>price</code>, <code>category</code>,
+          <code>brand</code>, <code>size</code>, <code>condition</code>, <code>color</code>, <code>images</code>.
+        </p>
+        <textarea id="depopInput" rows="10"></textarea>
+        <div class="row">
+          <button id="loadSample">Load sample</button>
+          <button id="transformBtn" class="primary">Transform listings</button>
+          <button id="downloadBtn" disabled>Download Poshmark CSV</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>2) Mapped Poshmark listings</h2>
+        <div id="summary" class="summary"></div>
+        <div id="results" class="results"></div>
+      </section>
+    </main>
+
+    <template id="cardTemplate">
+      <article class="card">
+        <div class="card-head">
+          <h3 class="title"></h3>
+          <span class="score"></span>
+        </div>
+        <dl class="fields"></dl>
+        <div class="warnings"></div>
+        <div class="row">
+          <button class="copyBtn">Copy listing JSON</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
