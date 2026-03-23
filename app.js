@@ -120,6 +120,33 @@ function firstNonEmpty(candidates = []) {
   return { value: '', source: 'none' };
 }
 
+function sanitizeToken(value = '') {
+  return cleanText(
+    String(value)
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/[{}[\]\\"]/g, ' ')
+      .replace(/\s+/g, ' '),
+  );
+}
+
+function pickCleanShortValue(raw = '', { maxLen = 50, allow = /^[a-z0-9 '&/+-]+$/i } = {}) {
+  const candidates = String(raw)
+    .split(/[,|;/>\n\r]+/)
+    .map((part) => sanitizeToken(part).trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (candidate.length < 2 || candidate.length > maxLen) continue;
+    if (!allow.test(candidate)) continue;
+    if (/^(sale|shop|items?|view|more)$/i.test(candidate)) continue;
+    return candidate;
+  }
+  return '';
+}
+
 function extractImagesFromHtml(html, doc) {
   const ogImages = [...doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')]
     .map((node) => cleanText(node.content))
@@ -175,7 +202,8 @@ function pickBrand(html) {
     ...findKeyStringValues(html, 'brand'),
     ...findKeyStringValues(html, 'brandName'),
   ].filter((value) => value.length > 1 && value.length < 50);
-  return brands[0] || findLabelValue(html, ['brand', 'designer', 'make']);
+  const raw = brands[0] || findLabelValue(html, ['brand', 'designer', 'make']);
+  return pickCleanShortValue(raw, { maxLen: 40 });
 }
 
 function pickCategory(html) {
@@ -184,7 +212,8 @@ function pickCategory(html) {
     ...findKeyStringValues(html, 'categoryName'),
     ...findKeyStringValues(html, 'department'),
   ].filter((value) => value.length > 1 && value.length < 80);
-  return categories[0] || findLabelValue(html, ['category', 'department']);
+  const raw = categories[0] || findLabelValue(html, ['category', 'department']);
+  return pickCleanShortValue(raw, { maxLen: 60 });
 }
 
 function pickSize(html, title, description) {
@@ -200,7 +229,10 @@ function pickSize(html, title, description) {
   }
 
   const labeled = findLabelValue(html, ['size', 'tagged size', 'fits like']);
-  if (labeled) return normalizeSize(labeled);
+  if (labeled) {
+    const normalized = normalizeSize(labeled);
+    if (normalized && normalized !== 'One Size') return normalized;
+  }
   return inferSize(`${title} ${description} ${labeled}`);
 }
 
@@ -232,7 +264,8 @@ function pickColor(html) {
     ...findKeyStringValues(html, 'colorName'),
   ].filter((value) => value.length > 1 && value.length < 50);
 
-  return colors[0] || findLabelValue(html, ['color', 'colour']);
+  const raw = colors[0] || findLabelValue(html, ['color', 'colour']);
+  return pickCleanShortValue(raw, { maxLen: 30 });
 }
 
 async function fetchDepopRawHtml(depopUrl) {
@@ -264,6 +297,9 @@ async function autofillFromDepopUrl() {
 
   autofillStatus.textContent = 'Fetching listing details from Depop link...';
   autofillBtn.disabled = true;
+  ['brand', 'category', 'size', 'color'].forEach((field) => {
+    manualFields[field].value = '';
+  });
 
   try {
     const html = await fetchDepopRawHtml(depopUrl);
@@ -305,7 +341,8 @@ async function autofillFromDepopUrl() {
     if (titleChoice.value) manualFields.title.value = titleChoice.value;
     if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
     if (imagesChoice.value.length) manualFields.images.value = imagesChoice.value.join('\n');
-    if (sizeChoice.value) manualFields.size.value = normalizeSize(sizeChoice.value);
+    const normalizedSize = normalizeSize(sizeChoice.value);
+    if (normalizedSize && normalizedSize !== 'One Size') manualFields.size.value = normalizedSize;
     if (brandChoice.value) manualFields.brand.value = brandChoice.value;
     if (categoryChoice.value) manualFields.category.value = categoryChoice.value;
     if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
