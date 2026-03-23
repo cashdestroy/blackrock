@@ -9,6 +9,7 @@ A lightweight web app for faster Depop-to-Poshmark cross-listing with **manual m
 - ✅ “Open workflow” button opens Depop listing + Poshmark sell page in separate tabs.
 - ✅ CSV export for all generated drafts.
 - ✅ Quality scoring for listing completeness.
+- ✅ Autofill debug panel shows source + value preview for each extracted field.
 
 ## Can it auto-login and post directly?
 

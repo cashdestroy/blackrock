@@ -10,6 +10,7 @@ const addManualBtn = document.querySelector('#addManualBtn');
 const clearManualBtn = document.querySelector('#clearManualBtn');
 const autofillBtn = document.querySelector('#autofillBtn');
 const autofillStatus = document.querySelector('#autofillStatus');
+const debugOutput = document.querySelector('#debugOutput');
 const manualFields = {
   depop_url: document.querySelector('#manualDepopUrl'),
   title: document.querySelector('#manualTitle'),
@@ -110,6 +111,13 @@ function findLabelValue(html, labels) {
     }
   }
   return '';
+}
+
+function firstNonEmpty(candidates = []) {
+  for (const candidate of candidates) {
+    if (candidate?.value) return candidate;
+  }
+  return { value: '', source: 'none' };
 }
 
 function extractImagesFromHtml(html, doc) {
@@ -261,28 +269,86 @@ async function autofillFromDepopUrl() {
     const html = await fetchDepopRawHtml(depopUrl);
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    const title = pickBestTitle(html, doc);
-    const description = pickBestDescription(html, doc);
-    const images = extractImagesFromHtml(html, doc);
-    const size = pickSize(html, title, description);
-    const brand = pickBrand(html);
-    const category = pickCategory(html);
-    const price = pickPrice(html);
-    const color = pickColor(html);
+    const titleChoice = firstNonEmpty([
+      { value: pickBestTitle(html, doc), source: 'meta/structured title parser' },
+      { value: extractFirst(doc, ['meta[property="og:title"]', 'title']), source: 'meta:title fallback' },
+    ]);
+    const descriptionChoice = firstNonEmpty([
+      { value: pickBestDescription(html, doc), source: 'structured/full description parser' },
+      { value: extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']), source: 'meta description fallback' },
+    ]);
+    const imagesChoice = {
+      value: extractImagesFromHtml(html, doc),
+      source: 'og:image + structured image parser',
+    };
+    const sizeChoice = firstNonEmpty([
+      { value: pickSize(html, titleChoice.value, descriptionChoice.value), source: 'size keys + label/inference parser' },
+      { value: findLabelValue(html, ['size', 'tagged size']), source: 'label fallback (size)' },
+    ]);
+    const brandChoice = firstNonEmpty([
+      { value: pickBrand(html), source: 'brand keys + label parser' },
+      { value: findLabelValue(html, ['brand']), source: 'label fallback (brand)' },
+    ]);
+    const categoryChoice = firstNonEmpty([
+      { value: pickCategory(html), source: 'category keys + label parser' },
+      { value: findLabelValue(html, ['category']), source: 'label fallback (category)' },
+    ]);
+    const priceChoice = firstNonEmpty([
+      { value: pickPrice(html), source: 'numeric/string price parser' },
+      { value: Number((findLabelValue(html, ['price']) || '').replace(/[^0-9.]/g, '')), source: 'label fallback (price)' },
+    ]);
+    const colorChoice = firstNonEmpty([
+      { value: pickColor(html), source: 'color keys + label parser' },
+      { value: findLabelValue(html, ['color', 'colour']), source: 'label fallback (color)' },
+    ]);
 
-    if (title) manualFields.title.value = title;
-    if (description) manualFields.description.value = description;
-    if (images.length) manualFields.images.value = images.join('\n');
-    if (size) manualFields.size.value = size;
-    if (brand) manualFields.brand.value = brand;
-    if (category) manualFields.category.value = category;
-    if (price) manualFields.price.value = String(Math.round(price));
-    if (color) manualFields.color.value = color;
+    if (titleChoice.value) manualFields.title.value = titleChoice.value;
+    if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
+    if (imagesChoice.value.length) manualFields.images.value = imagesChoice.value.join('\n');
+    if (sizeChoice.value) manualFields.size.value = normalizeSize(sizeChoice.value);
+    if (brandChoice.value) manualFields.brand.value = brandChoice.value;
+    if (categoryChoice.value) manualFields.category.value = categoryChoice.value;
+    if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
+    if (colorChoice.value) manualFields.color.value = colorChoice.value;
+
+    const debugData = {
+      url: depopUrl,
+      fetched_html_length: html.length,
+      fields: {
+        title: { source: titleChoice.source, value: titleChoice.value || null },
+        description: {
+          source: descriptionChoice.source,
+          length: descriptionChoice.value?.length || 0,
+          preview: descriptionChoice.value?.slice(0, 160) || null,
+        },
+        images: {
+          source: imagesChoice.source,
+          count: imagesChoice.value.length,
+          first_two: imagesChoice.value.slice(0, 2),
+        },
+        size: { source: sizeChoice.source, value: sizeChoice.value || null },
+        brand: { source: brandChoice.source, value: brandChoice.value || null },
+        category: { source: categoryChoice.source, value: categoryChoice.value || null },
+        price: { source: priceChoice.source, value: priceChoice.value || null },
+        color: { source: colorChoice.source, value: colorChoice.value || null },
+      },
+      note: 'If a field is null, Depop blocked it or parser could not locate it from fetched content.',
+    };
+    debugOutput.textContent = JSON.stringify(debugData, null, 2);
 
     autofillStatus.textContent =
       '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
   } catch (error) {
     autofillStatus.textContent = `❌ Could not auto-read this link (${error.message}). You can still fill manually.`;
+    debugOutput.textContent = JSON.stringify(
+      {
+        url: depopUrl,
+        error: error.message,
+        note: 'Try a public product URL (not /manage/) and ensure listing is live.',
+      },
+      null,
+      2,
+    );
   } finally {
     autofillBtn.disabled = false;
   }
