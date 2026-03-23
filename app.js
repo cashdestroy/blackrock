@@ -315,11 +315,37 @@ function detectBlockedFetch(html = '', title = '') {
   const sample = `${title} ${html.slice(0, 4000)}`.toLowerCase();
   return (
     sample.includes('just a moment') ||
+    sample.includes('forbidden') ||
+    sample.includes('access denied') ||
     sample.includes('attention required') ||
     sample.includes('cf-challenge') ||
     sample.includes('cloudflare') ||
     sample.includes('captcha')
   );
+}
+
+function isValidExtractedTitle(value = '') {
+  const t = cleanText(value).toLowerCase();
+  if (!t) return false;
+  return !(
+    t.includes('forbidden') ||
+    t.includes('just a moment') ||
+    t.includes('attention required') ||
+    t === 'depop'
+  );
+}
+
+function isValidExtractedSize(value = '') {
+  const s = cleanText(value).toUpperCase();
+  if (!s) return false;
+  if (/^\d+PX;?$/.test(s)) return false;
+  return /^(XXS|XS|S|M|L|XL|XXL|XXXL|W\d+|\d{1,2}(\.5)?)$/.test(s);
+}
+
+function isValidExtractedColor(value = '') {
+  const c = cleanText(value).toLowerCase();
+  if (!c) return false;
+  return !['inherit', 'initial', 'unset', 'currentcolor'].includes(c);
 }
 
 function extractFieldsFromHtml(html, depopUrl = '') {
@@ -408,15 +434,17 @@ function applyExtractedFields(result, sourceLabel) {
     return false;
   }
 
-  if (titleChoice.value) manualFields.title.value = titleChoice.value;
+  if (isValidExtractedTitle(titleChoice.value)) manualFields.title.value = titleChoice.value;
   if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
   if (imagesChoice.value.length) manualFields.images.value = imagesChoice.value.join('\n');
   const normalizedSize = normalizeSize(sizeChoice.value);
-  if (normalizedSize && normalizedSize !== 'One Size') manualFields.size.value = normalizedSize;
+  if (normalizedSize && normalizedSize !== 'One Size' && isValidExtractedSize(normalizedSize)) {
+    manualFields.size.value = normalizedSize;
+  }
   if (brandChoice.value) manualFields.brand.value = brandChoice.value;
   if (categoryChoice.value) manualFields.category.value = categoryChoice.value;
   if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
-  if (colorChoice.value) manualFields.color.value = colorChoice.value;
+  if (colorChoice.value && isValidExtractedColor(colorChoice.value)) manualFields.color.value = colorChoice.value;
 
   const filledCount = [
     titleChoice.value,
@@ -475,7 +503,7 @@ async function autofillFromDepopUrl() {
 
   autofillStatus.textContent = 'Fetching listing details from Depop link...';
   autofillBtn.disabled = true;
-  ['brand', 'category', 'size', 'color'].forEach((field) => {
+  ['title', 'description', 'price', 'brand', 'category', 'size', 'color', 'images'].forEach((field) => {
     manualFields[field].value = '';
   });
 
@@ -512,7 +540,7 @@ function parsePastedContent() {
     autofillFromDepopUrl();
     return;
   }
-  ['brand', 'category', 'size', 'color'].forEach((field) => {
+  ['title', 'description', 'price', 'brand', 'category', 'size', 'color', 'images'].forEach((field) => {
     manualFields[field].value = '';
   });
   const depopUrl = normalizeDepopProductUrl(manualFields.depop_url.value);
