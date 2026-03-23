@@ -11,6 +11,8 @@ const clearManualBtn = document.querySelector('#clearManualBtn');
 const autofillBtn = document.querySelector('#autofillBtn');
 const autofillStatus = document.querySelector('#autofillStatus');
 const debugOutput = document.querySelector('#debugOutput');
+const rawHtmlInput = document.querySelector('#rawHtmlInput');
+const parsePastedBtn = document.querySelector('#parsePastedBtn');
 const manualFields = {
   depop_url: document.querySelector('#manualDepopUrl'),
   title: document.querySelector('#manualTitle'),
@@ -318,6 +320,132 @@ function detectBlockedFetch(html = '', title = '') {
   );
 }
 
+function extractFieldsFromHtml(html, depopUrl = '') {
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+
+  const titleChoice = firstNonEmpty([
+    { value: pickBestTitle(html, doc), source: 'meta/structured title parser' },
+    { value: extractFirst(doc, ['meta[property="og:title"]', 'title']), source: 'meta:title fallback' },
+  ]);
+  const descriptionChoice = firstNonEmpty([
+    { value: pickBestDescription(html, doc), source: 'structured/full description parser' },
+    { value: extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']), source: 'meta description fallback' },
+  ]);
+  const imagesChoice = {
+    value: extractImagesFromHtml(html, doc),
+    source: 'og:image + structured image parser',
+  };
+  const sizeChoice = firstNonEmpty([
+    { value: pickSize(html, titleChoice.value, descriptionChoice.value), source: 'size keys + label/inference parser' },
+    { value: findLabelValue(html, ['size', 'tagged size']), source: 'label fallback (size)' },
+  ]);
+  const brandChoice = firstNonEmpty([
+    { value: pickBrand(html), source: 'brand keys + label parser' },
+    { value: findLabelValue(html, ['brand']), source: 'label fallback (brand)' },
+  ]);
+  const categoryChoice = firstNonEmpty([
+    { value: pickCategory(html), source: 'category keys + label parser' },
+    { value: findLabelValue(html, ['category']), source: 'label fallback (category)' },
+  ]);
+  const priceChoice = firstNonEmpty([
+    { value: pickPrice(html), source: 'numeric/string price parser' },
+    { value: Number((findLabelValue(html, ['price']) || '').replace(/[^0-9.]/g, '')), source: 'label fallback (price)' },
+  ]);
+  const colorChoice = firstNonEmpty([
+    { value: pickColor(html), source: 'color keys + label parser' },
+    { value: findLabelValue(html, ['color', 'colour']), source: 'label fallback (color)' },
+  ]);
+
+  return {
+    depopUrl,
+    html,
+    titleChoice,
+    descriptionChoice,
+    imagesChoice,
+    sizeChoice,
+    brandChoice,
+    categoryChoice,
+    priceChoice,
+    colorChoice,
+  };
+}
+
+function applyExtractedFields(result, sourceLabel) {
+  const {
+    depopUrl,
+    html,
+    titleChoice,
+    descriptionChoice,
+    imagesChoice,
+    sizeChoice,
+    brandChoice,
+    categoryChoice,
+    priceChoice,
+    colorChoice,
+  } = result;
+
+  if (detectBlockedFetch(html, titleChoice.value)) {
+    debugOutput.textContent = JSON.stringify(
+      {
+        url: depopUrl,
+        source: sourceLabel,
+        blocked: true,
+        detected_title: titleChoice.value || null,
+        note: 'Depop/Cloudflare bot check blocked content extraction from this proxy response.',
+        next_steps: [
+          'Open the public product URL in your browser (not /manage/).',
+          'Use the paste-content fallback below by pasting page source/text.',
+          'Try again later; anti-bot challenge pages are transient.',
+        ],
+      },
+      null,
+      2,
+    );
+    autofillStatus.textContent =
+      '❌ Depop returned an anti-bot page (“Just a moment”). Try “Parse pasted content” fallback.';
+    return false;
+  }
+
+  if (titleChoice.value) manualFields.title.value = titleChoice.value;
+  if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
+  if (imagesChoice.value.length) manualFields.images.value = imagesChoice.value.join('\n');
+  const normalizedSize = normalizeSize(sizeChoice.value);
+  if (normalizedSize && normalizedSize !== 'One Size') manualFields.size.value = normalizedSize;
+  if (brandChoice.value) manualFields.brand.value = brandChoice.value;
+  if (categoryChoice.value) manualFields.category.value = categoryChoice.value;
+  if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
+  if (colorChoice.value) manualFields.color.value = colorChoice.value;
+
+  const debugData = {
+    url: depopUrl,
+    source: sourceLabel,
+    fetched_html_length: html.length,
+    fields: {
+      title: { source: titleChoice.source, value: titleChoice.value || null },
+      description: {
+        source: descriptionChoice.source,
+        length: descriptionChoice.value?.length || 0,
+        preview: descriptionChoice.value?.slice(0, 160) || null,
+      },
+      images: {
+        source: imagesChoice.source,
+        count: imagesChoice.value.length,
+        first_two: imagesChoice.value.slice(0, 2),
+      },
+      size: { source: sizeChoice.source, value: sizeChoice.value || null },
+      brand: { source: brandChoice.source, value: brandChoice.value || null },
+      category: { source: categoryChoice.source, value: categoryChoice.value || null },
+      price: { source: priceChoice.source, value: priceChoice.value || null },
+      color: { source: colorChoice.source, value: colorChoice.value || null },
+    },
+    note: 'If a field is null, parser could not locate it in the provided content.',
+  };
+  debugOutput.textContent = JSON.stringify(debugData, null, 2);
+  autofillStatus.textContent =
+    '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
+  return true;
+}
+
 async function autofillFromDepopUrl() {
   const depopUrl = normalizeDepopProductUrl(manualFields.depop_url.value);
   if (!depopUrl) {
@@ -334,106 +462,15 @@ async function autofillFromDepopUrl() {
 
   try {
     const html = await fetchDepopRawHtml(depopUrl);
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-
-    const titleChoice = firstNonEmpty([
-      { value: pickBestTitle(html, doc), source: 'meta/structured title parser' },
-      { value: extractFirst(doc, ['meta[property="og:title"]', 'title']), source: 'meta:title fallback' },
-    ]);
-    const descriptionChoice = firstNonEmpty([
-      { value: pickBestDescription(html, doc), source: 'structured/full description parser' },
-      { value: extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']), source: 'meta description fallback' },
-    ]);
-    const imagesChoice = {
-      value: extractImagesFromHtml(html, doc),
-      source: 'og:image + structured image parser',
-    };
-    const sizeChoice = firstNonEmpty([
-      { value: pickSize(html, titleChoice.value, descriptionChoice.value), source: 'size keys + label/inference parser' },
-      { value: findLabelValue(html, ['size', 'tagged size']), source: 'label fallback (size)' },
-    ]);
-    const brandChoice = firstNonEmpty([
-      { value: pickBrand(html), source: 'brand keys + label parser' },
-      { value: findLabelValue(html, ['brand']), source: 'label fallback (brand)' },
-    ]);
-    const categoryChoice = firstNonEmpty([
-      { value: pickCategory(html), source: 'category keys + label parser' },
-      { value: findLabelValue(html, ['category']), source: 'label fallback (category)' },
-    ]);
-    const priceChoice = firstNonEmpty([
-      { value: pickPrice(html), source: 'numeric/string price parser' },
-      { value: Number((findLabelValue(html, ['price']) || '').replace(/[^0-9.]/g, '')), source: 'label fallback (price)' },
-    ]);
-    const colorChoice = firstNonEmpty([
-      { value: pickColor(html), source: 'color keys + label parser' },
-      { value: findLabelValue(html, ['color', 'colour']), source: 'label fallback (color)' },
-    ]);
-
-    if (detectBlockedFetch(html, titleChoice.value)) {
-      debugOutput.textContent = JSON.stringify(
-        {
-          url: depopUrl,
-          blocked: true,
-          detected_title: titleChoice.value || null,
-          note: 'Depop/Cloudflare bot check blocked content extraction from this proxy response.',
-          next_steps: [
-            'Open the public product URL in your browser (not /manage/).',
-            'Manually copy title/description/images or use Bulk JSON mode if you have structured data.',
-            'Try again later; anti-bot challenge pages are transient.',
-          ],
-        },
-        null,
-        2,
-      );
-      autofillStatus.textContent =
-        '❌ Depop returned an anti-bot page (“Just a moment”). Autofill could not access listing data from this network path.';
-      return;
-    }
-
-    if (titleChoice.value) manualFields.title.value = titleChoice.value;
-    if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
-    if (imagesChoice.value.length) manualFields.images.value = imagesChoice.value.join('\n');
-    const normalizedSize = normalizeSize(sizeChoice.value);
-    if (normalizedSize && normalizedSize !== 'One Size') manualFields.size.value = normalizedSize;
-    if (brandChoice.value) manualFields.brand.value = brandChoice.value;
-    if (categoryChoice.value) manualFields.category.value = categoryChoice.value;
-    if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
-    if (colorChoice.value) manualFields.color.value = colorChoice.value;
-
-    const debugData = {
-      url: depopUrl,
-      fetched_html_length: html.length,
-      fields: {
-        title: { source: titleChoice.source, value: titleChoice.value || null },
-        description: {
-          source: descriptionChoice.source,
-          length: descriptionChoice.value?.length || 0,
-          preview: descriptionChoice.value?.slice(0, 160) || null,
-        },
-        images: {
-          source: imagesChoice.source,
-          count: imagesChoice.value.length,
-          first_two: imagesChoice.value.slice(0, 2),
-        },
-        size: { source: sizeChoice.source, value: sizeChoice.value || null },
-        brand: { source: brandChoice.source, value: brandChoice.value || null },
-        category: { source: categoryChoice.source, value: categoryChoice.value || null },
-        price: { source: priceChoice.source, value: priceChoice.value || null },
-        color: { source: colorChoice.source, value: colorChoice.value || null },
-      },
-      note: 'If a field is null, Depop blocked it or parser could not locate it from fetched content.',
-    };
-    debugOutput.textContent = JSON.stringify(debugData, null, 2);
-
-    autofillStatus.textContent =
-      '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
+    const result = extractFieldsFromHtml(html, depopUrl);
+    applyExtractedFields(result, 'proxy fetch');
   } catch (error) {
     autofillStatus.textContent = `❌ Could not auto-read this link (${error.message}). You can still fill manually.`;
     debugOutput.textContent = JSON.stringify(
       {
         url: depopUrl,
         error: error.message,
-        note: 'Try a public product URL (not /manage/) and ensure listing is live.',
+        note: 'Try a public product URL (not /manage/) or use "Parse pasted content" fallback.',
       },
       null,
       2,
@@ -441,6 +478,20 @@ async function autofillFromDepopUrl() {
   } finally {
     autofillBtn.disabled = false;
   }
+}
+
+function parsePastedContent() {
+  const pasted = rawHtmlInput.value.trim();
+  if (!pasted) {
+    autofillStatus.textContent = '❌ Paste page HTML/text first, then click Parse pasted content.';
+    return;
+  }
+  ['brand', 'category', 'size', 'color'].forEach((field) => {
+    manualFields[field].value = '';
+  });
+  const depopUrl = normalizeDepopProductUrl(manualFields.depop_url.value);
+  const result = extractFieldsFromHtml(pasted, depopUrl);
+  applyExtractedFields(result, 'pasted content');
 }
 
 function cleanText(value = '') {
@@ -631,6 +682,7 @@ addManualBtn.addEventListener('click', () => {
 
 clearManualBtn.addEventListener('click', clearManualForm);
 autofillBtn.addEventListener('click', autofillFromDepopUrl);
+parsePastedBtn.addEventListener('click', parsePastedContent);
 
 loadSampleBtn.addEventListener('click', () => {
   depopInput.value = JSON.stringify(sampleListings, null, 2);

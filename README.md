@@ -36,6 +36,7 @@ Then open `http://localhost:8080`.
 - Paste Depop URL and click **Autofill from link** to prefill title/full description/photos/size/brand/category/price/color
 - Edit title, description, size, price, and all other fields before adding draft
 - If you paste a seller/manage URL ending in `/manage/`, the app now normalizes it to the public product URL before fetching.
+- If proxy autofill is blocked, use **Fallback: paste Depop page HTML/text** and click **Parse pasted content**.
 
 ### JSON mode
 

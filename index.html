@@ -64,6 +64,16 @@
           <summary>Autofill debug panel</summary>
           <pre id="debugOutput">No autofill run yet.</pre>
         </details>
+        <details class="debug">
+          <summary>Fallback: paste Depop page HTML/text</summary>
+          <p class="hint">
+            If proxy autofill is blocked, copy page source/text from your browser and paste it here.
+          </p>
+          <textarea id="rawHtmlInput" rows="5" placeholder="<html>...or pasted listing text..."></textarea>
+          <div class="row">
+            <button id="parsePastedBtn" type="button">Parse pasted content</button>
+          </div>
+        </details>
 
         <div class="row">
           <button id="addManualBtn" class="primary">Add listing draft</button>
