@@ -418,6 +418,17 @@ function applyExtractedFields(result, sourceLabel) {
   if (priceChoice.value) manualFields.price.value = String(Math.round(Number(priceChoice.value)));
   if (colorChoice.value) manualFields.color.value = colorChoice.value;
 
+  const filledCount = [
+    titleChoice.value,
+    descriptionChoice.value,
+    imagesChoice.value.length ? 'images' : '',
+    sizeChoice.value,
+    brandChoice.value,
+    categoryChoice.value,
+    priceChoice.value,
+    colorChoice.value,
+  ].filter(Boolean).length;
+
   const debugData = {
     url: depopUrl,
     source: sourceLabel,
@@ -441,10 +452,16 @@ function applyExtractedFields(result, sourceLabel) {
       color: { source: colorChoice.source, value: colorChoice.value || null },
     },
     note: 'If a field is null, parser could not locate it in the provided content.',
+    extracted_field_count: filledCount,
   };
   debugOutput.textContent = JSON.stringify(debugData, null, 2);
-  autofillStatus.textContent =
-    '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
+  if (filledCount < 3) {
+    autofillStatus.textContent =
+      '⚠️ Only partial data was extracted. Try a public product URL, then use "Parse pasted content" with actual page source/text.';
+  } else {
+    autofillStatus.textContent =
+      '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
+  }
   return true;
 }
 
@@ -486,6 +503,13 @@ function parsePastedContent() {
   const pasted = rawHtmlInput.value.trim();
   if (!pasted) {
     autofillStatus.textContent = '❌ Paste page HTML/text first, then click Parse pasted content.';
+    return;
+  }
+  if (/^https?:\/\/\S+$/i.test(pasted)) {
+    manualFields.depop_url.value = pasted;
+    autofillStatus.textContent =
+      'Detected a URL in pasted content. Fetching that listing URL directly...';
+    autofillFromDepopUrl();
     return;
   }
   ['brand', 'category', 'size', 'color'].forEach((field) => {
