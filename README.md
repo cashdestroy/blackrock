@@ -61,3 +61,4 @@ Then open `http://localhost:8080`.
 
 - Autofill from link works by trying public fetch proxies and parsing both metadata (`og:title`, `og:description`, `og:image`) and structured JSON-like page data (`description`, `size`, `brand`, `category`, `price`, `color` keys), plus text-label fallbacks (e.g., `Brand:`, `Size:`, `Price:`).
 - Because third-party sites can block scraping or change markup, autofill is best-effort and fields remain editable.
+- If Depop returns a bot-check page (e.g., title shows `Just a moment`), the app now detects that and surfaces a clear error instead of filling bad data.

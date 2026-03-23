@@ -307,6 +307,17 @@ function normalizeDepopProductUrl(url = '') {
   }
 }
 
+function detectBlockedFetch(html = '', title = '') {
+  const sample = `${title} ${html.slice(0, 4000)}`.toLowerCase();
+  return (
+    sample.includes('just a moment') ||
+    sample.includes('attention required') ||
+    sample.includes('cf-challenge') ||
+    sample.includes('cloudflare') ||
+    sample.includes('captcha')
+  );
+}
+
 async function autofillFromDepopUrl() {
   const depopUrl = normalizeDepopProductUrl(manualFields.depop_url.value);
   if (!depopUrl) {
@@ -357,6 +368,27 @@ async function autofillFromDepopUrl() {
       { value: pickColor(html), source: 'color keys + label parser' },
       { value: findLabelValue(html, ['color', 'colour']), source: 'label fallback (color)' },
     ]);
+
+    if (detectBlockedFetch(html, titleChoice.value)) {
+      debugOutput.textContent = JSON.stringify(
+        {
+          url: depopUrl,
+          blocked: true,
+          detected_title: titleChoice.value || null,
+          note: 'Depop/Cloudflare bot check blocked content extraction from this proxy response.',
+          next_steps: [
+            'Open the public product URL in your browser (not /manage/).',
+            'Manually copy title/description/images or use Bulk JSON mode if you have structured data.',
+            'Try again later; anti-bot challenge pages are transient.',
+          ],
+        },
+        null,
+        2,
+      );
+      autofillStatus.textContent =
+        '❌ Depop returned an anti-bot page (“Just a moment”). Autofill could not access listing data from this network path.';
+      return;
+    }
 
     if (titleChoice.value) manualFields.title.value = titleChoice.value;
     if (descriptionChoice.value) manualFields.description.value = descriptionChoice.value;
