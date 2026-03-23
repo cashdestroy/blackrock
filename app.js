@@ -90,6 +90,28 @@ function findKeyNumberValues(html, key) {
   return values;
 }
 
+function stripTags(value = '') {
+  return cleanText(String(value).replace(/<[^>]*>/g, ' '));
+}
+
+function findLabelValue(html, labels) {
+  for (const label of labels) {
+    const patterns = [
+      new RegExp(`${label}\\s*[:\\-]\\s*([^\\n\\r<|]{1,80})`, 'i'),
+      new RegExp(`${label}\\s*</[^>]+>\\s*<[^>]+>\\s*([^<]{1,80})`, 'i'),
+      new RegExp(`${label}\\s*\\n\\s*([^\\n\\r]{1,80})`, 'i'),
+    ];
+    for (const pattern of patterns) {
+      const match = html.match(pattern);
+      if (match?.[1]) {
+        const value = stripTags(match[1]);
+        if (value) return value;
+      }
+    }
+  }
+  return '';
+}
+
 function extractImagesFromHtml(html, doc) {
   const ogImages = [...doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')]
     .map((node) => cleanText(node.content))
@@ -145,7 +167,7 @@ function pickBrand(html) {
     ...findKeyStringValues(html, 'brand'),
     ...findKeyStringValues(html, 'brandName'),
   ].filter((value) => value.length > 1 && value.length < 50);
-  return brands[0] || '';
+  return brands[0] || findLabelValue(html, ['brand', 'designer', 'make']);
 }
 
 function pickCategory(html) {
@@ -154,7 +176,7 @@ function pickCategory(html) {
     ...findKeyStringValues(html, 'categoryName'),
     ...findKeyStringValues(html, 'department'),
   ].filter((value) => value.length > 1 && value.length < 80);
-  return categories[0] || '';
+  return categories[0] || findLabelValue(html, ['category', 'department']);
 }
 
 function pickSize(html, title, description) {
@@ -169,16 +191,40 @@ function pickSize(html, title, description) {
     if (normalized && normalized !== 'One Size') return normalized;
   }
 
-  return inferSize(`${title} ${description}`);
+  const labeled = findLabelValue(html, ['size', 'tagged size', 'fits like']);
+  if (labeled) return normalizeSize(labeled);
+  return inferSize(`${title} ${description} ${labeled}`);
 }
 
 function pickPrice(html) {
+  const stringPrices = [
+    ...findKeyStringValues(html, 'price'),
+    ...findKeyStringValues(html, 'formattedPrice'),
+    ...findKeyStringValues(html, 'displayPrice'),
+  ]
+    .map((value) => Number(value.replace(/[^0-9.]/g, '')))
+    .filter((value) => !Number.isNaN(value) && value > 0);
+
+  const labeledPrice = Number((findLabelValue(html, ['price', 'listing price']) || '').replace(/[^0-9.]/g, ''));
+
   const prices = [
+    ...stringPrices,
     ...findKeyNumberValues(html, 'price'),
     ...findKeyNumberValues(html, 'priceAmount'),
     ...findKeyNumberValues(html, 'amount'),
+    labeledPrice,
   ].filter((value) => value > 0 && value < 50000);
   return prices[0] || 0;
+}
+
+function pickColor(html) {
+  const colors = [
+    ...findKeyStringValues(html, 'color'),
+    ...findKeyStringValues(html, 'colour'),
+    ...findKeyStringValues(html, 'colorName'),
+  ].filter((value) => value.length > 1 && value.length < 50);
+
+  return colors[0] || findLabelValue(html, ['color', 'colour']);
 }
 
 async function fetchDepopRawHtml(depopUrl) {
@@ -222,6 +268,7 @@ async function autofillFromDepopUrl() {
     const brand = pickBrand(html);
     const category = pickCategory(html);
     const price = pickPrice(html);
+    const color = pickColor(html);
 
     if (title) manualFields.title.value = title;
     if (description) manualFields.description.value = description;
@@ -229,10 +276,11 @@ async function autofillFromDepopUrl() {
     if (size) manualFields.size.value = size;
     if (brand) manualFields.brand.value = brand;
     if (category) manualFields.category.value = category;
-    if (price && !manualFields.price.value) manualFields.price.value = String(Math.round(price));
+    if (price) manualFields.price.value = String(Math.round(price));
+    if (color) manualFields.color.value = color;
 
     autofillStatus.textContent =
-      '✅ Autofilled title, full description (when available), photos, size, brand, and category. Review/edit before adding draft.';
+      '✅ Autofilled title, full description (when available), photos, size, brand, category, price, and color. Review/edit before adding draft.';
   } catch (error) {
     autofillStatus.textContent = `❌ Could not auto-read this link (${error.message}). You can still fill manually.`;
   } finally {

@@ -4,7 +4,7 @@ A lightweight web app for faster Depop-to-Poshmark cross-listing with **manual m
 
 ## What changed
 
-- ✅ Manual cross-list flow: paste a Depop URL and click **Autofill from link** to pull title, full description when available, image URLs, size, brand, and category (best effort), then edit before saving.
+- ✅ Manual cross-list flow: paste a Depop URL and click **Autofill from link** to pull title, full description when available, image URLs, size, brand, category, price, and color (best effort), then edit before saving.
 - ✅ Optional JSON flow still available for bulk conversions.
 - ✅ “Open workflow” button opens Depop listing + Poshmark sell page in separate tabs.
 - ✅ CSV export for all generated drafts.
@@ -32,7 +32,7 @@ Then open `http://localhost:8080`.
 
 ### Manual mode
 - Depop URL: `https://www.depop.com/products/...`
-- Paste Depop URL and click **Autofill from link** to prefill title/full description/photos/size/brand/category
+- Paste Depop URL and click **Autofill from link** to prefill title/full description/photos/size/brand/category/price/color
 - Edit title, description, size, price, and all other fields before adding draft
 
 ### JSON mode
@@ -57,5 +57,5 @@ Then open `http://localhost:8080`.
 
 ## Autofill notes
 
-- Autofill from link works by trying public fetch proxies and parsing both metadata (`og:title`, `og:description`, `og:image`) and structured JSON-like page data (`description`, `size`, `brand`, `category`, `price` keys).
+- Autofill from link works by trying public fetch proxies and parsing both metadata (`og:title`, `og:description`, `og:image`) and structured JSON-like page data (`description`, `size`, `brand`, `category`, `price`, `color` keys), plus text-label fallbacks (e.g., `Brand:`, `Size:`, `Price:`).
 - Because third-party sites can block scraping or change markup, autofill is best-effort and fields remain editable.
