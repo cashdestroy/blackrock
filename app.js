@@ -134,6 +134,8 @@ function sanitizeToken(value = '') {
 
 function pickCleanShortValue(raw = '', { maxLen = 50, allow = /^[a-z0-9 '&/+-]+$/i } = {}) {
   const candidates = String(raw)
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/gi, '$1')
+    .replace(/[*_`]/g, ' ')
     .split(/[,|;/>\n\r]+/)
     .map((part) => sanitizeToken(part).trim())
     .filter(Boolean);
@@ -141,7 +143,9 @@ function pickCleanShortValue(raw = '', { maxLen = 50, allow = /^[a-z0-9 '&/+-]+$
   for (const candidate of candidates) {
     if (candidate.length < 2 || candidate.length > maxLen) continue;
     if (!allow.test(candidate)) continue;
-    if (/^(sale|shop|items?|view|more)$/i.test(candidate)) continue;
+    if (/^(sale|shop|items?|view|more|see more)$/i.test(candidate)) continue;
+    if (/(https?:\/\/|www\.|depop\.com)/i.test(candidate)) continue;
+    if (/^(tops?|bottoms?|mens?|womens?|kids?)$/i.test(candidate)) continue;
     return candidate;
   }
   return '';
@@ -233,6 +237,7 @@ function pickSize(html, title, description) {
     const normalized = normalizeSize(labeled);
     if (normalized && normalized !== 'One Size') return normalized;
   }
+  if ((title || '').length < 8 && (description || '').length < 16) return '';
   return inferSize(`${title} ${description} ${labeled}`);
 }
 
@@ -288,12 +293,27 @@ async function fetchDepopRawHtml(depopUrl) {
   throw lastError || new Error('Unable to fetch Depop listing data.');
 }
 
+function normalizeDepopProductUrl(url = '') {
+  const cleaned = cleanText(url);
+  if (!cleaned) return '';
+  try {
+    const parsed = new URL(cleaned);
+    parsed.search = '';
+    parsed.hash = '';
+    parsed.pathname = parsed.pathname.replace(/\/manage\/?$/i, '/');
+    return parsed.toString();
+  } catch {
+    return cleaned.replace(/\/manage\/?$/i, '/');
+  }
+}
+
 async function autofillFromDepopUrl() {
-  const depopUrl = cleanText(manualFields.depop_url.value);
+  const depopUrl = normalizeDepopProductUrl(manualFields.depop_url.value);
   if (!depopUrl) {
     autofillStatus.textContent = '❌ Add a Depop listing URL first.';
     return;
   }
+  manualFields.depop_url.value = depopUrl;
 
   autofillStatus.textContent = 'Fetching listing details from Depop link...';
   autofillBtn.disabled = true;
