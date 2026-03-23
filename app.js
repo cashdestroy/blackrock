@@ -2,6 +2,7 @@ const depopInput = document.querySelector('#depopInput');
 const loadSampleBtn = document.querySelector('#loadSample');
 const transformBtn = document.querySelector('#transformBtn');
 const downloadBtn = document.querySelector('#downloadBtn');
+const clearDraftsBtn = document.querySelector('#clearDraftsBtn');
 const resultsEl = document.querySelector('#results');
 const summaryEl = document.querySelector('#summary');
 const cardTemplate = document.querySelector('#cardTemplate');
@@ -27,6 +28,7 @@ const manualFields = {
 };
 
 let transformedRows = [];
+const STORAGE_KEY = 'depop_poshmark_crosslister_v1';
 
 const sampleListings = [
   {
@@ -498,6 +500,61 @@ function cleanText(value = '') {
   return String(value).replace(/\s+/g, ' ').trim();
 }
 
+function getManualFormSnapshot() {
+  return {
+    depop_url: manualFields.depop_url.value,
+    title: manualFields.title.value,
+    description: manualFields.description.value,
+    price: manualFields.price.value,
+    category: manualFields.category.value,
+    brand: manualFields.brand.value,
+    size: manualFields.size.value,
+    condition: manualFields.condition.value,
+    color: manualFields.color.value,
+    images: manualFields.images.value,
+    raw_html: rawHtmlInput.value,
+  };
+}
+
+function applyManualFormSnapshot(snapshot = {}) {
+  manualFields.depop_url.value = snapshot.depop_url || '';
+  manualFields.title.value = snapshot.title || '';
+  manualFields.description.value = snapshot.description || '';
+  manualFields.price.value = snapshot.price || '';
+  manualFields.category.value = snapshot.category || '';
+  manualFields.brand.value = snapshot.brand || '';
+  manualFields.size.value = snapshot.size || '';
+  manualFields.condition.value = snapshot.condition || 'good';
+  manualFields.color.value = snapshot.color || '';
+  manualFields.images.value = snapshot.images || '';
+  rawHtmlInput.value = snapshot.raw_html || '';
+}
+
+function saveState() {
+  const payload = {
+    manual: getManualFormSnapshot(),
+    transformedRows,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+}
+
+function loadState() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    applyManualFormSnapshot(parsed.manual || {});
+    if (Array.isArray(parsed.transformedRows) && parsed.transformedRows.length) {
+      transformedRows = parsed.transformedRows;
+      render(transformedRows);
+      downloadBtn.disabled = false;
+      summaryEl.textContent = `Restored ${transformedRows.length} saved draft(s).`;
+    }
+  } catch {
+    localStorage.removeItem(STORAGE_KEY);
+  }
+}
+
 function normalizeSize(size = '') {
   const s = cleanText(size).toUpperCase();
   if (!s) return 'One Size';
@@ -638,6 +695,7 @@ function upsertRows(newRows) {
   transformedRows = [...transformedRows, ...newRows];
   render(transformedRows);
   downloadBtn.disabled = transformedRows.length === 0;
+  saveState();
 }
 
 function getManualListing() {
@@ -668,6 +726,8 @@ function clearManualForm() {
       el.value = '';
     }
   });
+  rawHtmlInput.value = '';
+  saveState();
 }
 
 addManualBtn.addEventListener('click', () => {
@@ -678,14 +738,23 @@ addManualBtn.addEventListener('click', () => {
   }
   upsertRows([toPoshmarkRow(listing)]);
   summaryEl.textContent = `Added manual listing: ${listing.title}`;
+  saveState();
 });
 
 clearManualBtn.addEventListener('click', clearManualForm);
 autofillBtn.addEventListener('click', autofillFromDepopUrl);
 parsePastedBtn.addEventListener('click', parsePastedContent);
+clearDraftsBtn.addEventListener('click', () => {
+  transformedRows = [];
+  resultsEl.innerHTML = '';
+  summaryEl.textContent = 'Cleared all saved drafts.';
+  downloadBtn.disabled = true;
+  localStorage.removeItem(STORAGE_KEY);
+});
 
 loadSampleBtn.addEventListener('click', () => {
   depopInput.value = JSON.stringify(sampleListings, null, 2);
+  saveState();
 });
 
 transformBtn.addEventListener('click', () => {
@@ -710,3 +779,12 @@ downloadBtn.addEventListener('click', () => {
   link.remove();
   URL.revokeObjectURL(url);
 });
+
+Object.values(manualFields).forEach((el) => {
+  el.addEventListener('input', saveState);
+  el.addEventListener('change', saveState);
+});
+rawHtmlInput.addEventListener('input', saveState);
+depopInput.addEventListener('input', saveState);
+
+loadState();

@@ -10,6 +10,7 @@ A lightweight web app for faster Depop-to-Poshmark cross-listing with **manual m
 - ✅ CSV export for all generated drafts.
 - ✅ Quality scoring for listing completeness.
 - ✅ Autofill debug panel shows source + value preview for each extracted field.
+- ✅ Local autosave/restoration for form data + generated drafts between refreshes.
 
 ## Can it auto-login and post directly?
 
