@@ -62,6 +62,34 @@ function extractFirst(doc, selectors) {
   return '';
 }
 
+function decodeEscapedString(value = '') {
+  try {
+    return JSON.parse(`"${String(value).replace(/"/g, '\\"')}"`);
+  } catch {
+    return String(value);
+  }
+}
+
+function findKeyStringValues(html, key) {
+  const pattern = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 'gi');
+  const values = [];
+  for (const match of html.matchAll(pattern)) {
+    const text = cleanText(decodeEscapedString(match[1]));
+    if (text) values.push(text);
+  }
+  return values;
+}
+
+function findKeyNumberValues(html, key) {
+  const pattern = new RegExp(`"${key}"\\s*:\\s*(\\d+(?:\\.\\d+)?)`, 'gi');
+  const values = [];
+  for (const match of html.matchAll(pattern)) {
+    const num = Number(match[1]);
+    if (!Number.isNaN(num)) values.push(num);
+  }
+  return values;
+}
+
 function extractImagesFromHtml(html, doc) {
   const ogImages = [...doc.querySelectorAll('meta[property="og:image"], meta[name="twitter:image"]')]
     .map((node) => cleanText(node.content))
@@ -87,6 +115,70 @@ function inferSize(text) {
   if (waist) return `W${waist[1]}`;
   const shoe = haystack.match(/\b(?:SIZE\s*)?(\d{1,2}(?:\.5)?)\b/);
   return shoe ? shoe[1] : '';
+}
+
+function pickBestDescription(html, doc) {
+  const metaDescription = extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']);
+  const structuredDescriptions = [
+    ...findKeyStringValues(html, 'description'),
+    ...findKeyStringValues(html, 'fullDescription'),
+    ...findKeyStringValues(html, 'body'),
+  ].filter((value) => value.length > 30);
+
+  const bestStructured = structuredDescriptions.sort((a, b) => b.length - a.length)[0] || '';
+  return bestStructured || metaDescription;
+}
+
+function pickBestTitle(html, doc) {
+  const metaTitle = extractFirst(doc, ['meta[property="og:title"]', 'title']);
+  const structuredTitles = [
+    ...findKeyStringValues(html, 'title'),
+    ...findKeyStringValues(html, 'name'),
+  ].filter((value) => value.length > 5 && value.length < 120);
+
+  const bestStructured = structuredTitles.sort((a, b) => b.length - a.length)[0] || '';
+  return bestStructured || metaTitle;
+}
+
+function pickBrand(html) {
+  const brands = [
+    ...findKeyStringValues(html, 'brand'),
+    ...findKeyStringValues(html, 'brandName'),
+  ].filter((value) => value.length > 1 && value.length < 50);
+  return brands[0] || '';
+}
+
+function pickCategory(html) {
+  const categories = [
+    ...findKeyStringValues(html, 'category'),
+    ...findKeyStringValues(html, 'categoryName'),
+    ...findKeyStringValues(html, 'department'),
+  ].filter((value) => value.length > 1 && value.length < 80);
+  return categories[0] || '';
+}
+
+function pickSize(html, title, description) {
+  const sizeCandidates = [
+    ...findKeyStringValues(html, 'size'),
+    ...findKeyStringValues(html, 'sizeText'),
+    ...findKeyStringValues(html, 'sizeLabel'),
+  ];
+
+  for (const candidate of sizeCandidates) {
+    const normalized = normalizeSize(candidate);
+    if (normalized && normalized !== 'One Size') return normalized;
+  }
+
+  return inferSize(`${title} ${description}`);
+}
+
+function pickPrice(html) {
+  const prices = [
+    ...findKeyNumberValues(html, 'price'),
+    ...findKeyNumberValues(html, 'priceAmount'),
+    ...findKeyNumberValues(html, 'amount'),
+  ].filter((value) => value > 0 && value < 50000);
+  return prices[0] || 0;
 }
 
 async function fetchDepopRawHtml(depopUrl) {
@@ -123,21 +215,24 @@ async function autofillFromDepopUrl() {
     const html = await fetchDepopRawHtml(depopUrl);
     const doc = new DOMParser().parseFromString(html, 'text/html');
 
-    const title = extractFirst(doc, ['meta[property="og:title"]', 'title']);
-    const description = extractFirst(doc, ['meta[property="og:description"]', 'meta[name="description"]']);
+    const title = pickBestTitle(html, doc);
+    const description = pickBestDescription(html, doc);
     const images = extractImagesFromHtml(html, doc);
+    const size = pickSize(html, title, description);
+    const brand = pickBrand(html);
+    const category = pickCategory(html);
+    const price = pickPrice(html);
 
-    if (title && !manualFields.title.value) manualFields.title.value = title;
-    if (description && !manualFields.description.value) manualFields.description.value = description;
-    if (images.length && !manualFields.images.value) manualFields.images.value = images.join('\n');
+    if (title) manualFields.title.value = title;
+    if (description) manualFields.description.value = description;
+    if (images.length) manualFields.images.value = images.join('\n');
+    if (size) manualFields.size.value = size;
+    if (brand) manualFields.brand.value = brand;
+    if (category) manualFields.category.value = category;
+    if (price && !manualFields.price.value) manualFields.price.value = String(Math.round(price));
 
-    const textBlob = `${title} ${description}`;
-    if (!manualFields.size.value) {
-      const guessedSize = inferSize(textBlob);
-      if (guessedSize) manualFields.size.value = guessedSize;
-    }
-
-    autofillStatus.textContent = `✅ Autofilled fields from link. Review/edit before adding draft.`;
+    autofillStatus.textContent =
+      '✅ Autofilled title, full description (when available), photos, size, brand, and category. Review/edit before adding draft.';
   } catch (error) {
     autofillStatus.textContent = `❌ Could not auto-read this link (${error.message}). You can still fill manually.`;
   } finally {
