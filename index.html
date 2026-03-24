@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TagTracker</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="mobile-shell">
+      <header class="app-header card">
+        <h1>TagTracker</h1>
+        <p>Decode tags, save favorites, and connect with collectors.</p>
+      </header>
+
+      <aside class="card auth-panel">
+        <h2>Account</h2>
+        <form id="auth-form" class="stack">
+          <label>
+            Username
+            <input id="auth-username" type="text" minlength="3" maxlength="20" />
+          </label>
+          <label>
+            Password
+            <input id="auth-password" type="password" minlength="6" />
+          </label>
+          <p class="subtle">Pick your default app colors for this account.</p>
+          <div class="form-grid">
+            <label>Primary color <input id="auth-theme-primary" type="color" value="#7a2e1f" /></label>
+            <label>Background color <input id="auth-theme-background" type="color" value="#f6efe8" /></label>
+          </div>
+          <div class="row">
+            <button type="button" data-auth-action="register">Create account</button>
+            <button type="button" data-auth-action="login" class="secondary">Log in</button>
+          </div>
+          <button type="button" id="guest-login" class="ghost">Continue as Guest</button>
+        </form>
+        <div id="session-view" class="hidden"></div>
+      </aside>
+
+      <section class="content card">
+        <nav class="tabs" aria-label="Sections">
+          <button class="tab active" data-tab="home">Home</button>
+          <button class="tab" data-tab="tagtracker">TagTracker</button>
+          <button class="tab" data-tab="favorites">Favorites</button>
+          <button class="tab" data-tab="forum">Forum</button>
+          <button class="tab" data-tab="settings">Customize</button>
+        </nav>
+
+        <section id="home" class="tab-panel active card">
+          <h2>Welcome</h2>
+          <p>
+            This prototype recreates your Glide concept as a fully coded app foundation, including
+            accounts, tag uploads, favorites, and forum interaction.
+          </p>
+          <div id="top-contributors"></div>
+        </section>
+
+        <section id="tagtracker" class="tab-panel card">
+          <div class="split">
+            <h2>Tag Library</h2>
+            <input id="tag-search" type="search" placeholder="Search tags by brand/style/year" />
+          </div>
+          <p id="tag-guest-lock" class="helper hidden">Guest mode: login to upload tags or save favorites.</p>
+
+          <form id="tag-form" class="stack form-grid">
+            <label>Brand <input id="tag-brand" required maxlength="40" /></label>
+            <label>Style <input id="tag-style" required maxlength="40" /></label>
+            <label>Year (optional) <input id="tag-year" type="number" min="1900" max="2100" /></label>
+            <label class="full">Notes <textarea id="tag-notes" rows="2" maxlength="240"></textarea></label>
+            <label class="full">Image URL <input id="tag-image" type="url" placeholder="https://..." /></label>
+            <button type="submit" class="full">Upload Tag</button>
+          </form>
+
+          <div id="tag-grid" class="grid"></div>
+        </section>
+
+        <section id="favorites" class="tab-panel card">
+          <div class="split">
+            <h2>Favorites</h2>
+            <input id="favorites-search" type="search" placeholder="Search favorites" />
+          </div>
+          <div id="favorites-list" class="grid"></div>
+        </section>
+
+        <section id="forum" class="tab-panel card">
+          <h2>Forum Posts</h2>
+          <p id="forum-guest-lock" class="helper hidden">Guest mode: login to publish, like, or comment on posts.</p>
+          <form id="post-form" class="stack">
+            <label>Title <input id="post-title" required maxlength="80" /></label>
+            <label>Body <textarea id="post-body" required rows="3" maxlength="600"></textarea></label>
+            <button type="submit">Publish Post</button>
+          </form>
+          <div id="post-list" class="stack"></div>
+        </section>
+
+        <section id="settings" class="tab-panel card">
+          <h2>Customize</h2>
+          <form id="theme-form" class="stack">
+            <label>Primary color <input type="color" id="theme-primary" /></label>
+            <label>Background color <input type="color" id="theme-background" /></label>
+            <button type="submit">Save Theme</button>
+            <button type="button" id="theme-reset" class="secondary">Reset Theme</button>
+          </form>
+        </section>
+      </section>
+    </main>
+
+    <template id="tag-card-template">
+      <article class="tag-card">
+        <img alt="Vintage clothing tag" loading="lazy" />
+        <h3></h3>
+        <p class="meta"></p>
+        <p class="notes"></p>
+        <div class="row">
+          <button class="favorite-btn">☆ Favorite</button>
+          <small class="author"></small>
+        </div>
+      </article>
+    </template>
+
+    <template id="post-template">
+      <article class="post-card">
+        <h3></h3>
+        <p class="meta"></p>
+        <p class="body"></p>
+        <div class="row">
+          <button class="like-btn">Like</button>
+          <span class="like-count"></span>
+        </div>
+        <form class="comment-form row">
+          <input name="comment" placeholder="Add comment" maxlength="200" required />
+          <button type="submit">Reply</button>
+        </form>
+        <ul class="comments"></ul>
+      </article>
+    </template>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>

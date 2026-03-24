@@ -1,0 +1,38 @@
+# TagTracker (Coded Prototype)
+
+A fully coded starter app inspired by your Glide TagTracker concept.
+
+## Features
+
+- Account registration and login + a read-only Guest mode.
+- Account creation includes default color picks (saved per user and re-applied on login).
+- Tag upload form (brand, style, year, notes, image URL).
+- Searchable TagTracker grid.
+- Favorites system per user.
+- Forum posts with likes and comments.
+- Top contributors panel.
+- Theme customization (primary/background colors).
+- Local persistence via `localStorage`.
+
+## Run locally
+
+Because this app uses browser APIs, run it in a browser (local server recommended).
+
+```bash
+python -m http.server 4173
+```
+
+Then open:
+
+- <http://localhost:4173>
+
+You can also open `index.html` directly, but some browsers apply stricter local-file security. If buttons are unresponsive, use the local server option above.
+
+> Note: running `node app.js` directly only prints guidance and exits. The app is meant to run in a browser.
+
+## Next recommended upgrades
+
+- Move auth and data to a real backend (Supabase/Firebase/Postgres API).
+- Add image upload storage (S3/Supabase Storage/Cloudinary).
+- Add moderation tools, reports, and role-based admin actions.
+- Add tests (unit + e2e) and CI pipeline.
