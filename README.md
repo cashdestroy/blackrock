@@ -5,6 +5,7 @@ A fully coded starter app inspired by your Glide TagTracker concept.
 ## Features
 
 - Account registration and login + a read-only Guest mode.
+- Account creation includes default color picks (saved per user and re-applied on login).
 - Tag upload form (brand, style, year, notes, image URL).
 - Searchable TagTracker grid.
 - Favorites system per user.

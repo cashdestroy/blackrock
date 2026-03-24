@@ -38,8 +38,8 @@ const defaultState = {
     }
   ],
   theme: {
-    primary: "#2a3c7a",
-    background: "#eef1f8"
+    primary: "#7a2e1f",
+    background: "#f6efe8"
   }
 };
 
@@ -59,6 +59,8 @@ if (typeof document === "undefined") {
       sessionView: document.getElementById("session-view"),
       authUsername: document.getElementById("auth-username"),
       authPassword: document.getElementById("auth-password"),
+      authThemePrimary: document.getElementById("auth-theme-primary"),
+      authThemeBackground: document.getElementById("auth-theme-background"),
       guestLoginBtn: document.getElementById("guest-login"),
       tagForm: document.getElementById("tag-form"),
       tagSearch: document.getElementById("tag-search"),
@@ -96,12 +98,14 @@ if (typeof document === "undefined") {
       event.preventDefault();
       state.theme.primary = els.themePrimary.value;
       state.theme.background = els.themeBackground.value;
+      persistThemeForCurrentUser();
       saveState();
       applyTheme();
     });
 
     els.themeReset.addEventListener("click", () => {
       state.theme = { ...defaultState.theme };
+      persistThemeForCurrentUser();
       saveState();
       applyTheme();
     });
@@ -124,21 +128,30 @@ if (typeof document === "undefined") {
 
     if (action === "register") {
       if (existing) return notify("Username already exists.");
+      const preferredTheme = {
+        primary: els.authThemePrimary.value || defaultState.theme.primary,
+        background: els.authThemeBackground.value || defaultState.theme.background
+      };
       const user = {
         id: newId(),
         username,
         password,
         joinedAt: Date.now(),
-        isGuest: false
+        isGuest: false,
+        theme: preferredTheme
       };
       state.users.push(user);
       state.sessionUserId = user.id;
+      state.theme = { ...preferredTheme };
       notify("Account created.");
     }
 
     if (action === "login") {
       if (!existing || existing.password !== password || existing.isGuest) return notify("Invalid login.");
       state.sessionUserId = existing.id;
+      if (existing.theme) {
+        state.theme = { ...defaultState.theme, ...existing.theme };
+      }
       notify(`Welcome back ${existing.username}.`);
     }
 
@@ -149,6 +162,7 @@ if (typeof document === "undefined") {
 
   function loginAsGuest() {
     state.sessionUserId = GUEST_USER_ID;
+    state.theme = { ...defaultState.theme };
     saveState();
     notify("Guest mode enabled. Browsing only; interactions are locked.");
     renderSession();
@@ -157,6 +171,7 @@ if (typeof document === "undefined") {
 
   function logout() {
     state.sessionUserId = null;
+    state.theme = { ...defaultState.theme };
     saveState();
     renderSession();
     renderAll();
@@ -413,6 +428,15 @@ if (typeof document === "undefined") {
     return state.users.find((user) => user.id === state.sessionUserId) || null;
   }
 
+  function persistThemeForCurrentUser() {
+    const user = currentUser();
+    if (!user || user.isGuest) return;
+    user.theme = {
+      primary: state.theme.primary,
+      background: state.theme.background
+    };
+  }
+
   function usernameById(id) {
     if (!id) return "TagTracker Team";
     return state.users.find((u) => u.id === id)?.username || "Unknown User";
@@ -425,6 +449,13 @@ if (typeof document === "undefined") {
       const merged = { ...structuredClone(defaultState), ...JSON.parse(raw) };
       if (!Array.isArray(merged.users) || !merged.users.some((u) => u.id === GUEST_USER_ID)) {
         merged.users = [defaultState.users[0], ...(Array.isArray(merged.users) ? merged.users : [])];
+      }
+      merged.users = merged.users.map((user) => {
+        if (user.isGuest) return { ...defaultState.users[0], ...user };
+        return { ...user, theme: user.theme || { ...defaultState.theme } };
+      });
+      if (!merged.theme?.primary || !merged.theme?.background) {
+        merged.theme = { ...defaultState.theme };
       }
       return merged;
     } catch {

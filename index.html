@@ -24,6 +24,11 @@
             Password
             <input id="auth-password" type="password" minlength="6" />
           </label>
+          <p class="subtle">Pick your default app colors for this account.</p>
+          <div class="form-grid">
+            <label>Primary color <input id="auth-theme-primary" type="color" value="#7a2e1f" /></label>
+            <label>Background color <input id="auth-theme-background" type="color" value="#f6efe8" /></label>
+          </div>
           <div class="row">
             <button type="button" data-auth-action="register">Create account</button>
             <button type="button" data-auth-action="login" class="secondary">Log in</button>
