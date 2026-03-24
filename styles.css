@@ -1,10 +1,10 @@
 :root {
-  --primary: #203546;
-  --background: #f2f4f7;
+  --primary: #2a3c7a;
+  --background: #eef1f8;
   --card: #ffffff;
-  --text: #12202b;
-  --muted: #677783;
-  --border: #d8dfe5;
+  --text: #0f1b33;
+  --muted: #60708e;
+  --border: #d9dfec;
 }
 
 * {
@@ -18,21 +18,29 @@ body {
   background: var(--background);
 }
 
+.mobile-shell {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0.7rem;
+  display: grid;
+  gap: 0.8rem;
+}
+
 .app-header {
-  padding: 1.25rem;
-  background: linear-gradient(160deg, #09131b 0%, var(--primary) 100%);
+  padding: 1rem;
+  background: linear-gradient(160deg, #111f4a 0%, var(--primary) 100%);
   color: #fff;
 }
 
 .app-header h1 {
   margin: 0;
+  font-size: 1.2rem;
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 1rem;
-  padding: 1rem;
+.app-header p {
+  margin-bottom: 0;
+  margin-top: 0.35rem;
+  color: #e6edff;
 }
 
 .card {
@@ -45,13 +53,22 @@ body {
 .tabs {
   display: flex;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.9rem;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0.5rem;
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 0.4rem;
+  border-radius: 12px;
+  z-index: 2;
 }
 
 .tab {
   border: 1px solid var(--border);
   background: #fff;
+  flex: 1;
+  min-width: 88px;
 }
 
 .tab.active {
@@ -95,6 +112,12 @@ button.secondary {
   background: #f7f9fa;
   color: var(--text);
   border-color: var(--border);
+}
+
+button.ghost {
+  background: #fff;
+  color: var(--primary);
+  border-color: var(--primary);
 }
 
 .stack {
@@ -175,12 +198,32 @@ p {
   display: none;
 }
 
-@media (max-width: 900px) {
-  .layout {
+.helper {
+  padding: 0.6rem 0.7rem;
+  border-radius: 10px;
+  background: #eef3ff;
+  color: #304887;
+  border: 1px solid #c5d2f6;
+}
+
+.auth-panel {
+  order: 2;
+}
+
+.content {
+  order: 3;
+}
+
+@media (max-width: 700px) {
+  .form-grid {
     grid-template-columns: 1fr;
   }
 
-  .form-grid {
-    grid-template-columns: 1fr;
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .tabs {
+    top: 0.2rem;
   }
 }
