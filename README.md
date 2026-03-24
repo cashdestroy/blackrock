@@ -15,7 +15,7 @@ A fully coded starter app inspired by your Glide TagTracker concept.
 
 ## Run locally
 
-Because this app uses browser APIs + ES modules, run it with a local server.
+Because this app uses browser APIs, run it in a browser (local server recommended).
 
 ```bash
 python -m http.server 4173
@@ -25,7 +25,9 @@ Then open:
 
 - <http://localhost:4173>
 
-> Note: running `node app.js` directly will only print guidance and exit. The app is meant to run in a browser.
+You can also open `index.html` directly, but some browsers apply stricter local-file security. If buttons are unresponsive, use the local server option above.
+
+> Note: running `node app.js` directly only prints guidance and exits. The app is meant to run in a browser.
 
 ## Next recommended upgrades
 

@@ -1,5 +1,7 @@
 const STORAGE_KEY = "tagtracker_v2";
 const GUEST_USER_ID = "guest-user";
+const newId = () =>
+  globalThis.crypto?.randomUUID?.() || `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
 const defaultState = {
   users: [
@@ -14,7 +16,7 @@ const defaultState = {
   sessionUserId: null,
   tags: [
     {
-      id: crypto.randomUUID(),
+      id: newId(),
       brand: "Anvil",
       style: "Heavyweight Cotton",
       year: "1994",
@@ -26,7 +28,7 @@ const defaultState = {
   ],
   posts: [
     {
-      id: crypto.randomUUID(),
+      id: newId(),
       title: "Welcome to TagTracker",
       body: "Share your finds, ask questions, and help identify obscure labels.",
       authorId: null,
@@ -42,7 +44,7 @@ const defaultState = {
 };
 
 if (typeof document === "undefined") {
-  console.log("TagTracker app.js is a browser module. Run `python -m http.server 4173` and open index.html in a browser.");
+  console.log("TagTracker app.js is a browser script. Run `python -m http.server 4173` and open index.html in a browser.");
 } else {
   const state = loadState();
   const els = mapElements();
@@ -123,7 +125,7 @@ if (typeof document === "undefined") {
     if (action === "register") {
       if (existing) return notify("Username already exists.");
       const user = {
-        id: crypto.randomUUID(),
+        id: newId(),
         username,
         password,
         joinedAt: Date.now(),
@@ -167,7 +169,7 @@ if (typeof document === "undefined") {
 
     const get = (id) => document.getElementById(id).value.trim();
     const tag = {
-      id: crypto.randomUUID(),
+      id: newId(),
       brand: get("tag-brand"),
       style: get("tag-style"),
       year: get("tag-year"),
@@ -195,7 +197,7 @@ if (typeof document === "undefined") {
     if (!title || !body) return;
 
     state.posts.unshift({
-      id: crypto.randomUUID(),
+      id: newId(),
       title,
       body,
       authorId: user.id,
@@ -346,7 +348,7 @@ if (typeof document === "undefined") {
         const input = commentForm.elements.comment;
         const content = input.value.trim();
         if (!content) return;
-        post.comments.push({ id: crypto.randomUUID(), authorId: user.id, content });
+        post.comments.push({ id: newId(), authorId: user.id, content });
         saveState();
         renderPosts();
       });
